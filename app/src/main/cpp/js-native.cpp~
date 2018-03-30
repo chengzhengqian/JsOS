@@ -1,0 +1,37 @@
+#include "duktape.h"
+#include <jni.h>
+#include <string>
+
+/**
+Utility functions for JN
+**/
+const char *getString(JNIEnv *env, jstring s) {
+  return env->GetStringUTFChars(s, 0);
+}
+void releaseString(JNIEnv *env, jstring s, const char *c) {
+  env->ReleaseStringUTFChars(s, c);
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_createHeapDefault(
+    JNIEnv *env, jobject /* this */) {
+  return (jlong)duk_create_heap_default();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_evalString(JNIEnv *env,
+                                                             jobject /* this */,
+                                                             long ctx,
+                                                             jstring jstr) {
+  const char *cstr = getString(env, jstr);
+  duk_eval_string((duk_context *)ctx, cstr);
+  releaseString(env, jstr, cstr);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getInt(JNIEnv *env,
+                                                         jobject /* this */,
+                                                         long ctx_, int idx) {
+  duk_context *ctx = (duk_context *)ctx_;
+  return duk_get_int(ctx, idx);
+}

@@ -1,6 +1,6 @@
 package com.serendipity.chengzhengqian.jsos;
 
-import java.security.PublicKey;
+import android.graphics.Color;
 
 public class JsNative {
     /**
@@ -309,20 +309,24 @@ public class JsNative {
             Object obj=getObject(context,1);
             if(obj!=null) {
                 String key = getString(context, 2);
-                GlobalState.currentActivity.tv.append(String.format("[obj:%s].%s\n", obj.getClass().getSimpleName().toString(), key));
+                GlobalState.printToLog(String.format("[obj:%s].%s\n", obj.getClass().getSimpleName().toString(), key),
+                        GlobalState.info);
             }
             else {
-                GlobalState.currentActivity.tv.append("!!!!get null object in java handle"+id +"\n");
+                GlobalState.printToLog("!!!!get null object in java handle"+id +"\n",
+                        GlobalState.error);
             }
         }
         else if(id==JSOBJECTFINALIZERHANDLE){
             Object obj=getObject(context,1);
             if(obj!=null) {
                 delObject(context,1);
-                GlobalState.currentActivity.tv.append(String.format("release [obj:%s]\n", obj.getClass().getSimpleName().toString()));
+                GlobalState.printToLog(String.format("release [obj:%s]\n", obj.getClass().getSimpleName().toString()),
+                        GlobalState.info);
             }
             else {
-                GlobalState.currentActivity.tv.append("!!!!get null object in java handle"+id+"\n");
+                GlobalState.printToLog("!!!!get null object in java handle"+id+"\n",
+                        GlobalState.error);
             }
         }
 
@@ -448,7 +452,8 @@ public class JsNative {
         putProp(context,index);
         call(context,1);
         if(ISSHOWNEWREFERCE){
-            GlobalState.currentActivity.tv.append(String.format("create [obj:%s]\n",obj.getClass().getSimpleName()));
+            GlobalState.printToLog(String.format("create [obj:%s]\n",obj.getClass().getSimpleName()),
+                    GlobalState.info);
         }
         return getTopIndex(context);
     }
@@ -538,4 +543,24 @@ public class JsNative {
         delPointer(context,-1);
         pop(context);
     }
+
+    /**
+     * . . . val . . .  → . . . ToString(val) . . .
+     Summary §
+     Like duk_to_string() but if the initial string coercion fails, the error value is coerced to a string. If that also fails, a fixed error string is returned.
+
+     The caller can safely use this function to coerce a value to a string, which is useful in C code to print out a return value safely with printf(). The only uncaught errors possible are out-of-memory and other internal errors which trigger fatal error handling anyway.
+     * @param context
+     * @return
+     */
+    public static native String safeToString(long context, int index);
+
+    /**
+     * . . . code -> . . . result (or error)
+     * protected evaluation
+     * @param context
+     * @param content
+     */
+    public static native void safeEval(long context,String content);
+
 }

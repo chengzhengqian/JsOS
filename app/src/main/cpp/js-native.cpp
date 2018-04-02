@@ -4,6 +4,7 @@
 
 /**
 Utility functions for JNI
+
 **/
 JavaVM *jvm;
 JNIEnv* getCurrentEnv(){
@@ -12,6 +13,10 @@ JNIEnv* getCurrentEnv(){
   JNIEnv* env;
   jvm->AttachCurrentThread(&env, NULL);
   return env;
+}
+
+void releaseCurrentEnv(){
+  jvm->DetachCurrentThread();
 }
 
 jstring newString(JNIEnv *env, const char *c){
@@ -92,6 +97,12 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_safeToString(JNIEnv* env, jobj
   return jstr;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getBoolean(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return duk_get_boolean(ctx, idx);
+}
+
 
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -120,6 +131,13 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_pushNumber(JNIEnv* env, jobjec
   duk_push_number(ctx, val);
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_pushNull(JNIEnv* env, jobject /* this */, long ctx_) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_push_null(ctx);
+}
+
+
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_serendipity_chengzhengqian_jsos_JsNative_pushString(JNIEnv* env, jobject /* this */, long ctx_, jstring jstr) {
@@ -135,6 +153,8 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_pushPointer(JNIEnv* env, jobje
   duk_context * ctx=(duk_context*)ctx_;
   /*notice one must release it*/
   duk_push_pointer(ctx,env->NewGlobalRef(p));
+  /* it seems we need this?*/
+  //deleteLocalRef(env,p);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -180,6 +200,12 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_pushBareObject(JNIEnv* env, jo
   return duk_push_bare_object(ctx);
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_pushBoolean(JNIEnv* env, jobject /* this */, long ctx_, bool value) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_push_boolean(ctx, value);
+}
+
 
 
 
@@ -214,6 +240,28 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_getProp(JNIEnv* env, jobject /
   duk_context * ctx=(duk_context*)ctx_;
   return duk_get_prop(ctx, obj_idx);
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getPrototype(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_get_prototype(ctx, idx );
+}
+
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getType(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return duk_get_type(ctx, idx);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getTypeMask(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return duk_get_type_mask(ctx, idx);
+}
+
+
+
 
 
 extern "C" JNIEXPORT void JNICALL
@@ -253,6 +301,11 @@ duk_ret_t __java_handle__(duk_context *ctx){
   jclass cls = env->FindClass(JSNATIVE);
   jmethodID javaHandle = env->GetStaticMethodID(cls, JAVAHANDLE, JAVAHANDLETYPE);
   env->CallStaticVoidMethod(cls, javaHandle, (long)ctx);
+  //as this will be called a lot,we must release it
+  deleteLocalRef(env,cls);
+  deleteLocalRef(env,(jobject)javaHandle);
+  
+  //releaseCurrentEnv();
   return 1;
 }
 
@@ -307,5 +360,37 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_safeEval(JNIEnv* env, jobject 
   /* notice the system will store cstr in heap, (before checking is there same string)*/
   releaseString(env, jstr, cstr);
 }
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_insert(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_insert(ctx, idx);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getPropString(JNIEnv* env, jobject /* this */, long ctx_,int idx, jstring jstr) {
+  duk_context * ctx=(duk_context*)ctx_;
+  const char* cstr=getString(env, jstr);
+  bool result= duk_get_prop_string(ctx, idx,cstr);
+  /* notice the system will store cstr in heap, (before checking is there same string)*/
+  releaseString(env, jstr, cstr);
+  return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getPropSymbol(JNIEnv* env, jobject /* this */, long ctx_, int idx, jstring jstr) {
+  duk_context * ctx=(duk_context*)ctx_;
+  const char* cstr=getString(env, jstr);
+  char symbol[MAXSYMBOL];
+  strcpy(symbol, "\xff");
+  strcat(symbol, cstr);
+  bool result= duk_get_prop_string(ctx, idx, symbol);
+  /* notice the system will store cstr in heap, (before checking is there same string)*/
+  releaseString(env, jstr, cstr);
+  return result;
+}
+
+
 
 

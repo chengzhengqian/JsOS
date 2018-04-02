@@ -1,14 +1,29 @@
 package com.serendipity.chengzhengqian.jsos;
 
+import android.os.AsyncTask;
 import fi.iki.elonen.NanoHTTPD;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
 public class JsServer extends NanoHTTPD {
 
+    class ShowIPInfo extends AsyncTask<Integer, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Integer... port) {
+
+            GlobalState.printToLog("host ip: "+NetUtil.getIPAddress(true)+
+                            ", port: "+ port[0]+"\n",
+                        GlobalState.info);
+            return null;
+        }
+    }
     public JsServer(int port) {
         super(port);
+        new ShowIPInfo().execute(port);
     }
 
     private String parseBodyForPostOrGet(NanoHTTPD.IHTTPSession session){
@@ -46,7 +61,7 @@ public class JsServer extends NanoHTTPD {
             String name= session.getParms().get("name");
             if (GlobalState.isUIRunning) {
                 response = SUCCESS;
-                //GlobalState.sendToMain(GlobalState.ADDWINDOW, name);
+//                GlobalState.sendToMain(GlobalState.ADDWINDOW, name);
             } else {
                 response = NOTRUNNING;
             }
@@ -69,11 +84,11 @@ public class JsServer extends NanoHTTPD {
                     @Override
                     public void run() {
                         try {
-                            GlobalState.printToLog(">>>"+content+"\n",GlobalState.info);
+                            GlobalState.printToLog(">>>\n"+content+"\n<<<\n",GlobalState.info);
                             JsNative.safeEval(GlobalState.ctx, content);
                             String s = JsNative.safeToString(GlobalState.ctx, -1);
                             if (s != null) {
-                                GlobalState.printToLog(s+"\n",
+                                GlobalState.printToLog("\n-----\n"+s+"\n-----\n",
                                         GlobalState.normal);
                                 JsNative.pop(GlobalState.ctx);
                             }

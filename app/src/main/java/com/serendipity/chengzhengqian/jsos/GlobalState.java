@@ -7,6 +7,7 @@ public class GlobalState {
     static int info=Color.BLUE;
     static int error=Color.RED;
     static int normal=Color.GREEN;
+    static int caretBackground= Color.BLUE;
     public static boolean isUIRunning;
     public static String serverIndexHtml;
     public static long ctx;

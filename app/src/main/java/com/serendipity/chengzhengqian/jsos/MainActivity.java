@@ -3,9 +3,13 @@ package com.serendipity.chengzhengqian.jsos;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.Spannable;
 import android.text.method.ScrollingMovementMethod;
+import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
+import android.view.KeyEvent;
+import android.widget.Space;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
@@ -26,17 +30,19 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Example of a call to a native method
         GlobalState.currentActivity=this;
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
-        //runTutorials();
+        //runTutorials(); this will show some examples that use duktape api
     }
+    public boolean ISAUTOMATICALLYSTARTSERVER=false;
     protected void onResume(){
         super.onResume();
         initJsCtx();
         registerState();
-        startServer();
+        if(ISAUTOMATICALLYSTARTSERVER)
+            startServer();
+        runTest();
     }
     protected void onPause(){
         super.onPause();
@@ -98,17 +104,40 @@ public class MainActivity extends Activity {
         JsNative.registerJavaHandle(ctx);
         JsNative.registerProxyHandleGet(ctx);
         JsNative.registerJsObjectFinalizer(ctx);
+        JsNative.registerFunctionHandle(ctx);
+        JsNative.pushObject(ctx,new JsJava(this),JsJava.name);
     }
 
+    public void addInput(){
+        /* show the current input again*/
+        if(currentInput.length()>0) {
+            jsLog.append(currentInput);
+            if(currentCaret==currentInput.length())
+                jsLog.append(" ");
+            Spannable spannableText= (Spannable) jsLog.getText();
+            spannableText.setSpan(new BackgroundColorSpan(GlobalState.caretBackground),
+                    outputIndex+currentCaret,outputIndex+currentCaret+1,0);
+        }
+    }
 
+    private void updateInput() {
+        setOnlyOutput();
+        addInput();
+    }
+    private void setOnlyOutput(){
+        /*remove the input first*/
+        Spannable spannableText= (Spannable) jsLog.getText();
+        jsLog.setText(spannableText.subSequence(0,outputIndex));
+    }
     public void addLogWithColor( String text, int color) {
-
-        int start = jsLog.getText().length();
+        setOnlyOutput();
         jsLog.append(text);
-        int end = jsLog.getText().length();
-
+        int newOutputIndex = jsLog.getText().length();
         Spannable spannableText = (Spannable) jsLog.getText();
-        spannableText.setSpan(new ForegroundColorSpan(color), start, end, 0);
+        spannableText.setSpan(
+                new ForegroundColorSpan(color), outputIndex, newOutputIndex, 0);
+        outputIndex=newOutputIndex;
+        addInput();
     }
 
     TextView jsLog;
@@ -116,6 +145,35 @@ public class MainActivity extends Activity {
     private void setTextViewScrollable(TextView tv){
         tv.setMaxLines(maxLineNumbers);
         tv.setMovementMethod(new ScrollingMovementMethod());
+    }
+    /* to mimic a edit text, one should buffer the content and then put it to text
+    * current implementation has flaw when the whole buffer is large and frequently take substring
+    * */
+    public StringBuilder currentInput=new StringBuilder();
+    public int currentCaret=0;
+
+    /**
+     * v1: 6s for 20000
+     * there are severa places to improves the code,
+     * io,  (have not consider yet)
+     * js side (improve)
+     * java side
+     */
+    private void runTest(){
+        jsLog.append(Utils.getCurrentTime()+" start test\n");
+        JsNative.safeEval(ctx,
+                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
+                "for(i=0;i<20000;i++)\n" +
+                "{\n" +
+                " \n" +
+                " b=c.new(i)\n" +
+                " s=s+b.intField\n" +
+                "}\n" +
+                "s"
+                );
+        jsLog.append(JsNative.safeToString(ctx,-1)+"\n");
+        jsLog.append(Utils.getCurrentTime()+" start test\n");
+
     }
     private void runTutorials(){
 
@@ -134,6 +192,90 @@ public class MainActivity extends Activity {
         jsLog.append((JsNativeExamples.tutorial12()));
         JsNativeExamples.close();
     }
+    public void addChar(char c){
+        currentInput.insert(currentCaret,c);
+        currentCaret+=1;
+        updateInput();
+    }
+    public void addString(String s){
+        currentInput.insert(currentCaret,s);
+        currentCaret+=s.length();
+        updateInput();
+    }
 
+    int outputIndex=0;
 
+    public boolean onKeyDown(int keycode, KeyEvent event){
+        if(event.isCtrlPressed()){
+            if(keycode==KeyEvent.KEYCODE_B)
+                return cursorLetf();
+            if(keycode==KeyEvent.KEYCODE_F)
+                return cursorRight();
+            if(keycode==KeyEvent.KEYCODE_R)
+                return runCode();
+
+        }
+        if(keycode>=KeyEvent.KEYCODE_A && keycode<=KeyEvent.KEYCODE_Z){
+            char base='a';
+            if(event.isShiftPressed()){
+                base='A';
+            }
+            addChar((char) (((char)(keycode-KeyEvent.KEYCODE_A))+base));
+            return true;
+        }
+        if(keycode==KeyEvent.KEYCODE_DEL){
+            return deleteLeft();
+        }
+        if(!(keycode==KeyEvent.KEYCODE_CTRL_LEFT))
+            addString("["+keycode+"]");
+
+        return true;
+    }
+    private void emptyInput(){
+        currentInput=new StringBuilder();
+        currentCaret=0;
+    }
+
+    /**
+     * execute code. Notice this must be execute in UI thread.
+     * @return
+     */
+    private boolean runCode() {
+        try {
+            addLogWithColor(">>>" + currentInput.toString() + "\n", GlobalState.normal);
+            JsNative.safeEval(ctx, currentInput.toString());
+            String s=JsNative.safeToString(ctx, -1);
+            if(s!=null)
+                addLogWithColor( s+"\n", GlobalState.info);
+            emptyInput();
+        }
+        catch (Exception e){
+            addLogWithColor(e.toString()+"\n",GlobalState.error);
+        }
+        return true;
+    }
+
+    private boolean deleteLeft() {
+        if(currentCaret>0) {
+            currentInput.deleteCharAt(currentCaret - 1);
+        }
+        cursorLetf();
+        return true;
+    }
+
+    private boolean cursorRight() {
+        if(currentCaret<currentInput.length()){
+            currentCaret+=1;
+        }
+        updateInput();
+        return true;
+    }
+
+    private boolean cursorLetf() {
+        if(currentCaret>0){
+            currentCaret-=1;
+        }
+        updateInput();
+        return true;
+    }
 }

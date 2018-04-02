@@ -12,7 +12,8 @@ public class JsService extends Service {
     }
     private static int WEBSERVER_PORT = 11000;
     private JsServer server;
-    public static String wrapServiceInfo(String s){
+    public static String wrapServiceInfo(String s)
+    {
         return Utils.getCurrentTime()+": "+s+"\n";
     }
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -23,8 +24,8 @@ public class JsService extends Service {
                     wrapServiceInfo("server is started"),GlobalState.info);
         }
         catch (Exception e){
-            GlobalState.printToLog(
-                   e.toString(),GlobalState.error);
+//            GlobalState.printToLog(
+//                   e.toString(),GlobalState.error);
         }
         return START_STICKY;
 

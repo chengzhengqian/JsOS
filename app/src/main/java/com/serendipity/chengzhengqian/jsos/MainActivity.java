@@ -533,8 +533,8 @@ public class MainActivity extends Activity {
         addKey("o",1,1,1);
         addKey("n",1,2,1);
 
-        addKey(backspace,2,0,2);
-        addKey(enter,1,0,2);
+        addKey(backspace,1,0,2);
+        addKey(enter,2,0,2);
         addKey(meta,0,0,2);
         addKey(alt,3,0,2);
     }
@@ -577,12 +577,12 @@ public class MainActivity extends Activity {
                 new String[]{meta,shift,","},
                 new String[]{meta,alt,"{"},
 
-                new String[]{enter,alt,runCommand},
-                new String[]{enter,shift,markCommand},
-                new String[]{enter,"c",copyCommand},
+                new String[]{enter,"-",runCommand},
+                new String[]{enter,meta,markCommand},
+                new String[]{enter,"j",copyCommand},
                 new String[]{enter,"<",cutCommand},
-                new String[]{enter,"o",pasteCommand},
-
+                new String[]{enter,ctrl,pasteCommand},
+                new String[]{enter,"|","\n"},
 
 
                 new String[]{shift,"\\","1"},
@@ -609,7 +609,7 @@ public class MainActivity extends Activity {
                 new String[]{meta,"o","("},
                 new String[]{meta,"n","["},
 
-                new String[]{"n",enter,"\n"},
+
         };
 
         // so beautiful the design
@@ -1127,10 +1127,11 @@ public class MainActivity extends Activity {
             String codeInput=currentInput.toString();
             JsNative.safeEval(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
-            if(s!=null)
-                addLogWithColor("<<<"+ s+"\n", GlobalState.info);
             codeHistory.add(codeInput);
             currentHistory=codeHistory.size()-1;
+            if(s!=null)
+                addLogWithColor("Out["+(currentHistory+1)+"]: "+ s+"\n", GlobalState.info);
+
             emptyInput();
         }
         catch (Exception e){

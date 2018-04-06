@@ -24,6 +24,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 import static com.serendipity.chengzhengqian.jsos.GlobalState.ctx;
 
@@ -35,6 +36,7 @@ public class MainActivity extends Activity {
     }
     ConstraintLayout mainCL;
     private String runCommand="##run";
+    private boolean markon =false;
 
     /*
     orientation 0; vertical , others: horizontal
@@ -691,12 +693,12 @@ public class MainActivity extends Activity {
         JsNative.registerFunctionHandle(ctx);
         JsNative.pushObject(ctx,new JsJava(this),JsJava.name);
     }
-    String modelLine="------------------\n";
+    String modelLine="------------------cursor:%d------------------\n";
     public void updateUI(){
         /* show the current input again*/
         SpannableStringBuilder sb=new SpannableStringBuilder();
         sb.append(output);
-        sb.append(modelLine);
+        sb.append(String.format(modelLine,currentCaret));
         sb.append(currentInput);
         if(currentCaret==currentInput.length()){
             sb.append(" ");
@@ -704,6 +706,7 @@ public class MainActivity extends Activity {
                     sb.length()-1,sb.length(),0
                     );
         }
+
         jsLog.setText(sb);
 
     }
@@ -843,10 +846,22 @@ public class MainActivity extends Activity {
         else if(event.isCtrlPressed()||isEffectiveCtrlOn){
             if(keycode==KeyEvent.KEYCODE_B)
                 return cursorLeft();
-            if(keycode==KeyEvent.KEYCODE_F)
+            else if(keycode==KeyEvent.KEYCODE_F)
                 return cursorRight();
-            if(keycode==KeyEvent.KEYCODE_R)
+            else if(keycode==KeyEvent.KEYCODE_R)
                 return runCode();
+            else if(keycode==KeyEvent.KEYCODE_M)
+                return setMark();
+            else if(keycode==KeyEvent.KEYCODE_P)
+                return cursorUp();
+            else if(keycode==KeyEvent.KEYCODE_N)
+                return cursorDown();
+            else if(keycode==KeyEvent.KEYCODE_W)
+                return cut();
+            else if(keycode==KeyEvent.KEYCODE_Y)
+                return paste();
+            else if(keycode==KeyEvent.KEYCODE_E)
+                return endOfLine();
 
         }
         else if(keycode>=KeyEvent.KEYCODE_A && keycode<=KeyEvent.KEYCODE_Z){
@@ -1085,9 +1100,22 @@ public class MainActivity extends Activity {
 
     private void setSelected(){
         currentInput.clearSpans();
-        if(currentCaret<currentInput.length()&&currentCaret>=0)
-            currentInput.setSpan(new BackgroundColorSpan(Color.BLUE),currentCaret,currentCaret+1,0);
-
+        if(currentCaret<currentInput.length()&&currentCaret>=0) {
+            if(markon) {
+                if (currentCaret < markPosition)
+                    currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), currentCaret, markPosition + 1, 0);
+                else
+                    currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), markPosition, currentCaret + 1, 0);
+            }
+            else{
+                currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), currentCaret, currentCaret + 1, 0);
+            }
+        }
+        if(currentCaret==currentInput.length()){
+            if(markon)
+                currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), markPosition, currentInput.length(), 0);
+        }
+        updateUI();
     }
     private boolean cursorDown(){
         if(currentCaret<currentInput.length()-1){
@@ -1097,20 +1125,24 @@ public class MainActivity extends Activity {
                 !(currentInput.charAt(currentCaret-1)=='\n')){
             currentCaret+=1;
         }
+        setSelected();
         //GlobalState.printToLog("down"+currentCaret+"\n",GlobalState.info);
-        cursorRight();
+        //cursorRight();
         return true;
     }
     private boolean cursorUp(){
         if(currentCaret>1){
             currentCaret-=1;
         }
-        while (currentCaret>1&&
-                !(currentInput.charAt(currentCaret-1)=='\n')){
-            currentCaret-=1;
+        while(currentCaret>0){
+            if(!(currentInput.charAt(currentCaret-1)=='\n'))
+                    currentCaret-=1;
+            else
+                break;
         }
+        setSelected();
         //GlobalState.printToLog("up"+currentCaret+"\n",GlobalState.info);
-        cursorLeft(2);
+        //cursorLeft();
         return true;
     }
     private boolean cursorLeft() {
@@ -1130,6 +1162,47 @@ public class MainActivity extends Activity {
         updateInput();
         return true;
     }
-
-
+    int markPosition=0;
+    private boolean setMark(){
+        markPosition=currentCaret;
+        markon =!markon;
+        return true;
+    }
+    private LinkedList<String> copyboards=new LinkedList<>();
+    private boolean cut(){
+        if(markPosition>currentCaret) {
+            copyboards.add((String) currentInput.subSequence(currentCaret,markPosition).toString());
+            currentInput=currentInput.delete(currentCaret, markPosition);
+        }
+        else{
+            copyboards.add((String) currentInput.subSequence(markPosition,currentCaret).toString());
+            currentInput=currentInput.delete(markPosition,currentCaret);
+            currentCaret=markPosition;
+        }
+        markon=!markon;
+        updateUI();
+        return true;
+    }
+    private boolean copy(){
+        if(markPosition>currentCaret) {
+            copyboards.add((String) currentInput.subSequence(currentCaret,markPosition).toString());
+            markPosition=currentCaret;
+        }
+        else{
+            copyboards.add((String) currentInput.subSequence(markPosition,currentCaret).toString());
+            currentCaret=markPosition;
+        }
+        markon=!markon;
+        updateUI();
+        return true;
+    }
+    private boolean paste(){
+        addString(copyboards.get(copyboards.size()-1));
+        return true;
+    }
+    private boolean endOfLine(){
+        cursorDown();
+        cursorLeft();
+        return true;
+    }
 }

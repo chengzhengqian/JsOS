@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Calendar;
+import java.util.HashMap;
 
 public class JsReflection {
     /**
@@ -17,6 +18,35 @@ public class JsReflection {
     public static int AsObject=1;
     public static int AsClass=2;
 
+    public static void setField(Object obj, String name, Object val){
+        if(obj instanceof Class){
+            if(setField(obj,name,val,AsClass))  return;
+            setField(obj,name,val,AsObject);
+        }
+        else{
+            if(setField(obj,name,val,AsObject))  return;
+            setField(obj,name,val,AsClass);
+        }
+    }
+    public static boolean setField(Object obj,String name, Object val, int type){
+
+        Class<?> c=getClass(obj, type);
+        if(c!=null){
+            try {
+                Field f=c.getField(name);
+                f.set(obj, val);
+                return true;
+            } catch (Exception e) {
+                GlobalState.printToLog(e.toString(),GlobalState.error);
+                return false;
+            }
+        }
+        else{
+            if(JsNative.ISDEBUG)
+                GlobalState.printToLog("error in get class\n",GlobalState.info);
+            return false;
+        }
+    }
     public static Class<?> getClass(Object obj, int type){
         Class<?> c=null;
         if(type==AsObject )
@@ -150,10 +180,25 @@ public class JsReflection {
         }
 
     }
+
+    public static String showMethods(Object b,String hint) {
+        Class<?> c=b.getClass();
+        StringBuilder s=new StringBuilder();
+        for(Field f:c.getDeclaredFields()){
+            if(hint.equals("")||f.getName().startsWith(hint))
+                s.append("@"+f.getName());
+        }
+        for(Method f:c.getDeclaredMethods()){
+            if(hint.equals("")||f.getName().startsWith(hint))
+                s.append("#"+f.getName());
+        }
+        return s.toString();
+    }
+
     public static class CallResult{
         boolean sucess=false;
     }
-
+    public static HashMap<Class<?>, Method> quickMethods=new HashMap<>();
     /**
      * call obj 's method, type control wether we interprete obj as an instance or an class.
      * The later will be checked to ensure obj instanceof class
@@ -167,7 +212,9 @@ public class JsReflection {
      */
     public static Object call(Object obj, String name, Object[] paras, int type, CallResult r){
         Class<?> c=getClass(obj,type);
-
+        /*handle the case to try wrong method*/
+        if(name.equals("toString"))
+            c=obj.getClass();
         if(c!=null){
             /*first check whether it is constructor*/
             if(name.equals(CONSTRUCTORTAG)){
@@ -192,10 +239,24 @@ public class JsReflection {
                     GlobalState.printToLog("failed to find matched constructor, try methods\n",
                         GlobalState.info);
             }
+
+            /*try quick method, in case this method has been called frequently,
+            * improve the algorithm to find*/
+            if (quickMethods.get(c)!=null) {
+                Method m=quickMethods.get(c);
+                if(isMatch(m,name,paras))
+                    try{
+                        r.sucess=true;
+                        return m.invoke(obj,paras);
+                    }catch(Exception e){
+                        GlobalState.printToLog(e.toString(),GlobalState.error);
+                    }
+            }
             for(Method m: c.getMethods()){
                 if(isMatch(m,name,paras)){
                     try {
                         r.sucess=true;
+                        quickMethods.put(c,m);
                         return m.invoke(obj,paras);
                     } catch (Exception e) {
                         GlobalState.printToLog(e.toString(),GlobalState.error);

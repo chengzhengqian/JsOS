@@ -211,6 +211,19 @@ public class JsNative {
     public static native void pushString(long context, String value);
 
     /**
+     * void duk_push_global_object(duk_context *ctx);
+     Stack §
+     . . .  → . . . global
+     Summary §
+     Push the global object to the stack.
+
+     Example §
+     duk_push_global_object(ctx);
+
+     * @param context
+     */
+    public static native void pushGlobalObject(long context);
+    /**
      * Duktape supports ES2015 Symbols and also provides a Duktape specific hidden Symbol variant similar to internal strings in Duktape 1.x. Hidden Symbols differ from ES2015 Symbols in that they're hidden from ordinary Ecmascript code: they can't be created from Ecmascript code, won't be enumerated or JSON-serialized, and won't be returned from Object.getOwnPropertyNames() or even Object.getOwnPropertySymbols(). Properties with hidden Symbol keys can only be accessed by a direct property read/write when holding a reference to the hidden Symbol.
      * <p>
      * Symbols of all kinds are represented internally using invalid UTF-8 byte sequences, see symbols.rst for the current formats in use. Application hidden Symbols begin with a 0xFF byte prefix and are followed by an arbitrary, application selected string. When C code pushes a string using e.g. duk_push_string() and the byte sequence matches an internal Symbol format, the string value is automatically interpreted as a Symbol.
@@ -440,6 +453,9 @@ public class JsNative {
         }else if(id==FUNCTIONCALL){
             __handle_function_call__(context);
         }
+        else if(id==PROXYSETHANDLE){
+            __handle_proxy_set_call__(context);
+        }
         else {
             if(JsNative.ISDEBUG) {
                 GlobalState.printToLog(String.format("unknown code %d in %s", id, JAVAHANLEFUNCNAME),
@@ -449,6 +465,8 @@ public class JsNative {
         }
 
     }
+
+
     private static void printCurrentStack(long context){
         pushContextDump(context);
         GlobalState.printToLog("stack:"+getString(context,-1)+"\n",GlobalState.info);
@@ -496,6 +514,22 @@ public class JsNative {
      * indicates that the handle has not yet push any result on stack
      */
     public static int CALLFAILED = 1;
+
+    /** id obj name val (3)
+     *
+     */
+
+    private static void __handle_proxy_set_call__(long context) {
+        Object obj = getObject(context, 1);
+        if (obj != null) {
+            String key = getString(context, 2);
+            Object val = getJavaObject(context,3);
+            if(JsNative.ISDEBUG)
+                GlobalState.printToLog(String.format("SET [obj:%s].%s\n", obj.getClass().getSimpleName().toString(), key),
+                    GlobalState.info);
+            JsReflection.setField(obj,key,val);
+        }
+    }
 
     /**
      * id obj name arg1 arg2 ..
@@ -778,12 +812,17 @@ public class JsNative {
         pushString(context, "get");
         getGlobalString(context, PROXYGET);
         putProp(context, handleIndex);
+        pushString(context, "set");
+        getGlobalString(context, PROXYSET);
+        putProp(context, handleIndex);
         return handleIndex;
     }
 
     public static final String JAVAHANLEFUNCNAME = "__java_handle__";
     public static final String PROXYGET = "__java_proxy_get__";
+    public static final String PROXYSET = "__java_proxy_set__";
     public static final String FUNCTIONHANDLE = "__function_handle__";
+    public static final String GETJSOBJECTPROPERTIES= "__get_jsobject_properties__";
 
     /*a key to retrieve the bare object from proxy*/
     public static final String PROXYGETBAREOBJECTKEY="__id__";
@@ -796,12 +835,22 @@ public class JsNative {
      */
     public static void registerProxyHandleGet(long context) {
         pushString(context, String.format(
-                "function(obj,key,recv){if(key===\"%s\"){return obj;}return %s(%d,obj,key);}",
+                "function(obj,key,recv){if(key===\"%s\"){return obj;};return %s(%d,obj,key);}",
                 PROXYGETBAREOBJECTKEY
                 , JAVAHANLEFUNCNAME, PROXYGETHANDLE));
         pushString(context, "proxyGet");
         pCompile(context, DUK_COMPILE_FUNCTION);
         putGlobalString(context, PROXYGET);
+
+    }
+    public static void registerProxyHandleSet(long context) {
+        pushString(context, String.format(
+                "function(obj,key,val,recv){if(key===\"%s\"){return true;};%s(%d,obj,key,val);return true;}",
+                PROXYGETBAREOBJECTKEY
+                , JAVAHANLEFUNCNAME, PROXYSETHANDLE));
+        pushString(context, "proxySet");
+        pCompile(context, DUK_COMPILE_FUNCTION);
+        putGlobalString(context, PROXYSET);
 
     }
 
@@ -818,10 +867,19 @@ public class JsNative {
                 ,JAVAHANLEFUNCNAME,FUNCTIONCALL));
         pushString(context,"functionHandle");
         pCompile(context,DUK_COMPILE_FUNCTION);
-
-
         putGlobalString(context,FUNCTIONHANDLE);
 
+    }
+
+    /**
+     * a function that return the js object properties
+     * @param context
+     */
+    public static void registerJsObejctProperties(long context){
+        pushString(context, "function(x){return Object.getOwnPropertyNames(x)}");
+        pushString(context, "jsObjectProperties");
+        pCompile(context,DUK_COMPILE_FUNCTION);
+        putGlobalString(context,GETJSOBJECTPROPERTIES);
     }
     public static void registerJsObjectFinalizer(long context) {
         pushString(context, String.format(
@@ -835,6 +893,7 @@ public class JsNative {
     public static final int PROXYGETHANDLE = 0;
     public static final int JSOBJECTFINALIZERHANDLE = 1;
     public static final int FUNCTIONCALL = 2;
+    public static final int PROXYSETHANDLE = 3;
 
     /**
      * register the key function that js will invoke whenever it want to communicate with java
@@ -1006,4 +1065,32 @@ public class JsNative {
      */
     public static native void insert(long context, int index);
 
+    /**
+     * must be called if previous has assciated a pushJavaHandle
+     * @param context
+     */
+    public static native void releaseJavaHandle(long context);
+
+    /**
+     * duk_bool_t duk_is_error(duk_context *ctx, duk_idx_t idx);
+     Stack §
+     . . . val . . .
+     Summary §
+     Returns 1 if value at idx inherits from Error, otherwise returns 0. If idx is invalid, also returns 0.
+
+     Example §
+
+     * @param context
+     * @param index
+     * @return
+     */
+
+    public static native boolean isError(long context, int index);
+    /*
+    . . . -> (emtpy)
+    empty the current stack
+     */
+    public static void clearStack(long context){
+        popN(context,getTop(context));
+    }
 }

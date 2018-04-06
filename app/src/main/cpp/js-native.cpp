@@ -1,23 +1,15 @@
 #include "duktape.h"
 #include <jni.h>
 #include <string>
-
+#include <map>
 /**
 Utility functions for JNI
 
 **/
-JavaVM *jvm;
-JNIEnv* getCurrentEnv(){
-  /* one should cache jvm instead of env.
-   */
-  JNIEnv* env;
-  jvm->AttachCurrentThread(&env, NULL);
-  return env;
-}
-
-void releaseCurrentEnv(){
-  jvm->DetachCurrentThread();
-}
+// JavaVM *jvm;
+std::map<duk_context*, JNIEnv*> envs;
+std::map<duk_context*, jclass> clsMap ;
+std::map<duk_context*, jmethodID> jhdMap;
 
 jstring newString(JNIEnv *env, const char *c){
   return env->NewStringUTF(c);
@@ -31,6 +23,22 @@ void deleteGlobalRef(JNIEnv *env, jobject obj){
   env->DeleteGlobalRef(obj);
 }
 
+
+JNIEnv* getCurrentEnv(duk_context *ctx){
+  /* one should cache jvm instead of env. but as ctx corresponding a same thread
+   */
+  // JNIEnv* env;
+  // jvm->AttachCurrentThread(&env, NULL);
+  return envs[ctx];
+}
+
+void releaseCurrentEnv(duk_context *ctx){
+  deleteGlobalRef(envs[ctx],clsMap[ctx]);
+  // envs.erase(ctx);
+  // clsMap.erase(ctx);
+  // jhdMap.erase(ctx);
+}
+
 const char *getString(JNIEnv *env, jstring s) {
   return env->GetStringUTFChars(s, 0);
 }
@@ -40,7 +48,7 @@ void releaseString(JNIEnv *env, jstring s, const char *c) {
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_serendipity_chengzhengqian_jsos_JsNative_createHeapDefault(
-    JNIEnv *env, jobject /* this */) {
+								    JNIEnv *env, jobject /* this */) {
   return (jlong)duk_create_heap_default();
 }
 
@@ -207,6 +215,13 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_pushBoolean(JNIEnv* env, jobje
 }
 
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_pushGlobalObject(JNIEnv* env, jobject /* this */, long ctx_) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_push_global_object(ctx);
+}
+
+
 
 
 extern "C" JNIEXPORT jint JNICALL
@@ -297,22 +312,26 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_getTop(JNIEnv* env, jobject /*
 #define  JAVAHANDLETYPE "(J)V"
 
 duk_ret_t __java_handle__(duk_context *ctx){
-  JNIEnv *env=getCurrentEnv();
-  jclass cls = env->FindClass(JSNATIVE);
-  jmethodID javaHandle = env->GetStaticMethodID(cls, JAVAHANDLE, JAVAHANDLETYPE);
+  JNIEnv *env=getCurrentEnv(ctx);
+  // jclass cls = env->FindClass(JSNATIVE);
+  jclass cls=clsMap[ctx];
+  //  jmethodID javaHandle = env->GetStaticMethodID(cls, JAVAHANDLE, JAVAHANDLETYPE);
+  jmethodID javaHandle=jhdMap[ctx];
   env->CallStaticVoidMethod(cls, javaHandle, (long)ctx);
   //as this will be called a lot,we must release it
-  deleteLocalRef(env,cls);
-  deleteLocalRef(env,(jobject)javaHandle);
-  
-  //releaseCurrentEnv();
+  // deleteLocalRef(env,cls);
+  //deleteLocalRef(env,(jobject)javaHandle);  
   return 1;
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_serendipity_chengzhengqian_jsos_JsNative_pushJavaHandle(JNIEnv* env, jobject /* this */, long ctx_) {
   duk_context * ctx=(duk_context*)ctx_;
-  env->GetJavaVM(&jvm);
+  // env->GetJavaVM(&jvm);
+  envs[ctx]=env;
+  clsMap[ctx]=(jclass)env->NewGlobalRef(env->FindClass(JSNATIVE));
+  //notice methodid is a permanent variable
+  jhdMap[ctx]=env->GetStaticMethodID(clsMap[ctx], JAVAHANDLE, JAVAHANDLETYPE);
   return duk_push_c_function(ctx, __java_handle__,DUK_VARARGS);
   
   //this means __java_handle will receive a variable stack according to caller.
@@ -392,5 +411,16 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_getPropSymbol(JNIEnv* env, job
 }
 
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_releaseJavaHandle(JNIEnv* env, jobject /* this */, long ctx_) {
+  duk_context * ctx=(duk_context*)ctx_;
+  releaseCurrentEnv(ctx);  
+}
 
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_isError(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return duk_is_error(ctx, idx);
+}
 

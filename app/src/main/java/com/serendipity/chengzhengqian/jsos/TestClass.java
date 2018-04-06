@@ -5,4 +5,5 @@ public class TestClass {
     TestClass(int a){
         intField=a;
     }
+    int intMethod(){ return intField;}
 }

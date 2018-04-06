@@ -71,14 +71,19 @@ public class MainActivity extends Activity {
         public void showHints(String pressedCode){
             String command=pressedCode+code;
             if(shapeInputMap.containsKey(command)){
-                this.setText(shapeInputMap.get(command));
-                this.setTextColor(hintKeyColor);
+                String s=shapeInputMap.get(command);
+                if(s.startsWith("##")){
+                    this.setText(s.substring(2));
+                }
+                else
+                    this.setText(s);
+                //this.setTextColor(hintKeyColor);
             }
 
         }
         public void hideHints(){
             this.setText(name);
-            this.setTextColor(normalKeyColor);
+            //this.setTextColor(normalKeyColor);
         }
         String name;
         String code;
@@ -102,6 +107,8 @@ public class MainActivity extends Activity {
         b.setTextColor(normalKeyColor);
         b.setLayoutParams(p);
         b.setText(name);
+        b.setTextSize(30.f);
+
         b.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
@@ -433,7 +440,8 @@ public class MainActivity extends Activity {
     private void initLog(){
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
-        currentInput.append("function test(x,y)\n{\na=123;\nb=123;\nreturn a+b;}\n");
+        jsLog.setTextSize(20.f);
+        currentInput.append("java.print(\"I am Niu Niu! Press "+meta+alt+"to run!\")");
         updateUI();
     }
     class KeyPosition {
@@ -455,8 +463,8 @@ public class MainActivity extends Activity {
     public Button altKey=null;
 
     private void addKey(String c, int x, int y, int part){
-        String mark="               ";
-        String o=String.format(mark+"\n%s\n"+mark,c);
+        String mark="  ";
+        String o=String.format(mark+"%s"+mark,c);
         //String o=c;
         KeyPosition op=new KeyPosition(x,y,part);
         positions.put(o,op);
@@ -693,7 +701,7 @@ public class MainActivity extends Activity {
         JsNative.registerFunctionHandle(ctx);
         JsNative.pushObject(ctx,new JsJava(this),JsJava.name);
     }
-    String modelLine="------------------cursor:%d------------------\n";
+    String modelLine="-------pos:%d-------\n";
     public void updateUI(){
         /* show the current input again*/
         SpannableStringBuilder sb=new SpannableStringBuilder();
@@ -1053,6 +1061,7 @@ public class MainActivity extends Activity {
     private void emptyInput(){
         currentInput=new SpannableStringBuilder();
         currentCaret=0;
+        updateUI();
     }
 
     /**
@@ -1061,11 +1070,11 @@ public class MainActivity extends Activity {
      */
     private boolean runCode() {
         try {
-            addLogWithColor(">>>" + currentInput.toString() + "\n", GlobalState.normal);
+            //addLogWithColor(">>>" + currentInput.toString() + "\n", GlobalState.normal);
             JsNative.safeEval(ctx, currentInput.toString());
             String s=JsNative.safeToString(ctx, -1);
             if(s!=null)
-                addLogWithColor( s+"\n", GlobalState.info);
+                addLogWithColor("<<<"+ s+"\n", GlobalState.info);
             emptyInput();
         }
         catch (Exception e){

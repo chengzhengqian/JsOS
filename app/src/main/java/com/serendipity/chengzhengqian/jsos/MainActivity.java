@@ -36,6 +36,10 @@ public class MainActivity extends Activity {
     }
     ConstraintLayout mainCL;
     private String runCommand="##run";
+    private String markCommand="##mrk";
+    private String copyCommand="##cp";
+    private String cutCommand="##ct";
+    private String pasteCommand="##pst";
     private boolean markon =false;
 
     /*
@@ -75,8 +79,14 @@ public class MainActivity extends Activity {
                 if(s.startsWith("##")){
                     this.setText(s.substring(2));
                 }
-                else
-                    this.setText(s);
+                else {
+                    if(s.equals("\n"))
+                        this.setText("\\n");
+                    else if(s.equals(" "))
+                        this.setText(":s:");
+                    else
+                        this.setText(s);
+                }
                 //this.setTextColor(hintKeyColor);
             }
 
@@ -193,144 +203,158 @@ public class MainActivity extends Activity {
 
     public int currentInsertNumber=0;
     public HashMap<String, String> correction=new HashMap<>();
+    public void touchMove(String code, MotionEvent event){
+//            GlobalState.printToLog("enter "+code+":"
+//                    +event.getX()+","+event.getY()+"\n",GlobalState.info);
+        if(keyPressed.keySet().size()==1){
+            if(keyPressed.containsKey(enter)){
+                PressedPoint p=keyPressed.get(enter);
+                if(p.step(event.getX()-p.x,1)>0){
+                    cursorRight();
+                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                }
+                if(p.step(event.getX()-p.x,1)<0){
+                    cursorLeft();
+                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                }
+                if(p.step(event.getY()-p.y,2)>0){
+                    if(isShiftOn){historyDown();}
+                    else
+                        cursorDown();
+                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                }
+                if(p.step(event.getY()-p.y,2)<0){
+                    if(isShiftOn){historyUp();}
+                    else
+                        cursorUp();
+                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                }
 
+            }
+            if(keyPressed.containsKey(backspace)){
+                deleteLeft();
+            }
+        }
+        if(keyPressed.keySet().size()>=2){
+            if(keyPressed.containsKey(code)){
+                PressedPoint p=keyPressed.get(code);
+                String newCode=p.isUpdated(event.getX(),event.getY(),code);
+                if(!newCode.equals("")) {
+                    correction.put(code,newCode);
+                }
+                else{
+                    correction.put(code,code);
+                }
+
+//                         GlobalState.printToLog(code + "->" + newCode + "\n",
+//                                GlobalState.info);
+                String command="";
+                for(String s:keyPressed.keySet()){
+                    if(correction.containsKey(s))
+                        command+=correction.get(s);
+                    else
+                        command+=s;
+                }
+                if(shapeInputMap.containsKey(command)) {
+//                            GlobalState.printToLog("correction: "+command+"\n",
+//                                    GlobalState.info);
+                    deleteLeft(currentInsertNumber);
+                    currentInsertNumber=handleInput(shapeInputMap.get(command),
+                            isShiftOn,isCtrOn, isAltOn,isMetaOn,true);
+                }
+                else{
+                    GlobalState.printToLog("unknown correction: "+command+"\n",
+                            GlobalState.info);
+                }
+
+
+            }
+        }
+    }
+
+    public void touchDown(String code, MotionEvent event){
+        /*orginally, there is indeed a order to tell which key is, but this
+         * turns out quite difficult to use, in practice, all code is defined
+         * so that order does not matter*/
+        if (!keyPressed.keySet().contains(code)) {
+            keyPressed.put(code,new PressedPoint(event.getX(),event.getY()));
+        }
+        /* when we simutanousely have two keys, we can deal with the combination*/
+
+        int N_key=2;
+        if (keyPressed.size() >= N_key) {
+            String command="";
+            for (String s : keyPressed.keySet()) {
+                command+=s;
+                if(s.equals(shift))  isShiftUsed = true;
+                else if(s.equals(ctrl))isCtrUsed=true;
+                else if(s.equals(alt))isAltUsed=true;
+                else if(s.equals(meta))isMetaUsed=true;
+            }
+            if(shapeInputMap.containsKey(command)) {
+                currentInsertNumber=handleInput(shapeInputMap.get(command),
+                        isShiftOn,isCtrOn, isAltOn, isMetaOn, false);
+            }
+            else
+                addLogWithColor("undefined: "+(command) + "\n", GlobalState.info);
+
+        }
+        /*deal with special keys*/
+        if(keyPressed.keySet().size()==1) {
+            if (keyPressed.keySet().contains(backspace)) {
+                deleteLeft();
+            }
+            else{
+                showHints(code);
+            }
+        }
+
+    }
+
+    public void touchUp(String code, MotionEvent event){
+        keyPressed.remove(code);
+        if(keyPressed.keySet().size()==0){
+            hideHints();
+        }
+        if(code.equals(shift)) {
+            if(!isShiftUsed)
+                toggleShift();
+            isShiftUsed=false;
+        }
+        else if(code.equals(ctrl)) {
+            if(!isCtrUsed)
+                toggleCtr();
+            isCtrUsed=false;
+        }
+        else if(code.equals(alt)) {
+            if(!isAltUsed)
+                toggleAlt();
+            isAltUsed=false;
+        }
+        else if(code.equals(meta)) {
+            if(!isMetaUsed)
+                toggleMeta();
+            isMetaUsed=false;
+        }
+        if(keyPressed.keySet().size()<2){
+            currentInsertNumber=0;//end input session.
+            addString(automatic);
+            cursorLeft(automatic.length());
+            automatic="";
+        }
+
+    }
     public boolean touchHandle(View view, MotionEvent event){
         MultiButton b = (MultiButton) view;
         String code = b.code;
         if(event.getAction()==MotionEvent.ACTION_MOVE){
-//            GlobalState.printToLog("enter "+code+":"
-//                    +event.getX()+","+event.getY()+"\n",GlobalState.info);
-            if(keyPressed.keySet().size()==1){
-                if(keyPressed.containsKey(enter)){
-                    //addString("\n");
-                    PressedPoint p=keyPressed.get(enter);
-                    if(p.step(event.getX()-p.x,1)>0){
-                        cursorRight();
-                        keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
-                    }
-                    if(p.step(event.getX()-p.x,1)<0){
-                        cursorLeft();
-                        keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
-                    }
-                    if(p.step(event.getY()-p.y,2)>0){
-                        cursorDown();
-                        keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
-                    }
-                    if(p.step(event.getY()-p.y,2)<0){
-                        cursorUp();
-                        keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
-                    }
-
-                }
-                if(keyPressed.containsKey(backspace)){
-                    deleteLeft();
-                }
-            }
-            if(keyPressed.keySet().size()>=2){
-                if(keyPressed.containsKey(code)){
-                    PressedPoint p=keyPressed.get(code);
-                    String newCode=p.isUpdated(event.getX(),event.getY(),code);
-                    if(!newCode.equals("")) {
-                        correction.put(code,newCode);
-                    }
-                    else{
-                        correction.put(code,code);
-                    }
-
-//                         GlobalState.printToLog(code + "->" + newCode + "\n",
-//                                GlobalState.info);
-                    String command="";
-                    for(String s:keyPressed.keySet()){
-                        if(correction.containsKey(s))
-                            command+=correction.get(s);
-                        else
-                            command+=s;
-                    }
-                    if(shapeInputMap.containsKey(command)) {
-//                            GlobalState.printToLog("correction: "+command+"\n",
-//                                    GlobalState.info);
-                            deleteLeft(currentInsertNumber);
-                            currentInsertNumber=handleInput(shapeInputMap.get(command),
-                                    isShiftOn,isCtrOn, isAltOn,isMetaOn,true);
-                    }
-                    else{
-                        GlobalState.printToLog("unknown correction: "+command+"\n",
-                                GlobalState.info);
-                    }
-
-
-                }
-            }
+            touchMove(code,event);
         }
         if(event.getAction()==MotionEvent.ACTION_DOWN) {
-            /*orginally, there is indeed a order to tell which key is, but this
-            * turns out quite difficult to use, in practice, all code is defined
-            * so that order does not matter*/
-            if (!keyPressed.keySet().contains(code)) {
-                keyPressed.put(code,new PressedPoint(event.getX(),event.getY()));
-            }
-            /* when we simutanousely have two keys, we can deal with the combination*/
-
-            int N_key=2;
-            if (keyPressed.size() >= N_key) {
-                String command="";
-                for (String s : keyPressed.keySet()) {
-                    command+=s;
-                    if(s.equals(shift))  isShiftUsed = true;
-                    else if(s.equals(ctrl))isCtrUsed=true;
-                    else if(s.equals(alt))isAltUsed=true;
-                    else if(s.equals(meta))isMetaUsed=true;
-                }
-                if(shapeInputMap.containsKey(command)) {
-                   currentInsertNumber=handleInput(shapeInputMap.get(command),
-                           isShiftOn,isCtrOn, isAltOn, isMetaOn, false);
-                }
-                else
-                    addLogWithColor("undefined: "+(command) + "\n", GlobalState.info);
-
-            }
-            /*deal with special keys*/
-            if(keyPressed.keySet().size()==1) {
-                if (keyPressed.keySet().contains(backspace)) {
-                    deleteLeft();
-                }
-                else{
-                    showHints(code);
-                }
-            }
+            touchDown(code,event);
         }
         if(event.getAction()==MotionEvent.ACTION_UP){
-            keyPressed.remove(code);
-            if(keyPressed.keySet().size()==0){
-                hideHints();
-            }
-            if(code.equals(shift)) {
-                if(!isShiftUsed)
-                    toggleShift();
-                isShiftUsed=false;
-            }
-            else if(code.equals(ctrl)) {
-                if(!isCtrUsed)
-                    toggleCtr();
-                isCtrUsed=false;
-            }
-            else if(code.equals(alt)) {
-                if(!isAltUsed)
-                    toggleAlt();
-                isAltUsed=false;
-            }
-            else if(code.equals(meta)) {
-                if(!isMetaUsed)
-                    toggleMeta();
-                isMetaUsed=false;
-            }
-            if(keyPressed.keySet().size()<2){
-                currentInsertNumber=0;//end input session.
-                addString(automatic);
-                cursorLeft(automatic.length());
-                automatic="";
-            }
-
+            touchUp(code,event);
         }
 
         return false;
@@ -374,6 +398,26 @@ public class MainActivity extends Activity {
         if (s.equals(runCommand)) {
             if(!IsEdit)
                 runCode();
+            return 0;
+        }
+        if (s.equals(copyCommand)) {
+            if(!IsEdit)
+                copy();
+            return 0;
+        }
+        if (s.equals(cutCommand)) {
+            if(!IsEdit)
+                cut();
+            return 0;
+        }
+        if (s.equals(pasteCommand)) {
+            if(!IsEdit)
+                paste();
+            return 0;
+        }
+        if(s.equals(markCommand)) {
+            if(!IsEdit)
+                setMark();
             return 0;
         }
         addString(s);
@@ -441,7 +485,7 @@ public class MainActivity extends Activity {
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
         jsLog.setTextSize(20.f);
-        currentInput.append("java.print(\"I am Niu Niu! Press "+meta+alt+"to run!\")");
+        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+alt+"to run!\")");
         updateUI();
     }
     class KeyPosition {
@@ -500,7 +544,7 @@ public class MainActivity extends Activity {
     }
     private void initShapeInputMap(){
         shapeInputMap.clear();
-        String[][] lists=new String[][]{
+        String[][] keyMapWithoutSpecialKey=new String[][]{
                 new String[]{"c","\\","a"},
                 new String[]{"\\","o","b"},
                 new String[]{"c","j","c"},
@@ -531,8 +575,16 @@ public class MainActivity extends Activity {
                 new String[]{shift, ctrl," "},
                 new String[]{ctrl,alt,"."},
                 new String[]{meta,shift,","},
-                new String[]{meta,alt,runCommand},
-                
+                new String[]{meta,alt,"{"},
+
+                new String[]{enter,alt,runCommand},
+                new String[]{enter,shift,markCommand},
+                new String[]{enter,"c",copyCommand},
+                new String[]{enter,"<",cutCommand},
+                new String[]{enter,"o",pasteCommand},
+
+
+
                 new String[]{shift,"\\","1"},
                 new String[]{shift,"/","2"},
                 new String[]{shift,"|","3"},
@@ -561,7 +613,7 @@ public class MainActivity extends Activity {
         };
 
         // so beautiful the design
-        for(String[] s: lists){
+        for(String[] s: keyMapWithoutSpecialKey){
             addShapeInput(s[0],s[1],s[2]);
         }
 
@@ -701,12 +753,12 @@ public class MainActivity extends Activity {
         JsNative.registerFunctionHandle(ctx);
         JsNative.pushObject(ctx,new JsJava(this),JsJava.name);
     }
-    String modelLine="-------pos:%d-------\n";
+    String modelLine="-------pos:%d-his:%d------\n";
     public void updateUI(){
         /* show the current input again*/
         SpannableStringBuilder sb=new SpannableStringBuilder();
         sb.append(output);
-        sb.append(String.format(modelLine,currentCaret));
+        sb.append(String.format(modelLine,currentCaret,currentHistory));
         sb.append(currentInput);
         if(currentCaret==currentInput.length()){
             sb.append(" ");
@@ -834,7 +886,7 @@ public class MainActivity extends Activity {
             automatic="]";
         }
         else if(s.equals("{")){
-            automatic="{";
+            automatic="}";
         }
         setSelected();
         updateInput();
@@ -1063,7 +1115,8 @@ public class MainActivity extends Activity {
         currentCaret=0;
         updateUI();
     }
-
+    public static LinkedList<String> codeHistory=new LinkedList<>();
+    public static int currentHistory=-1;
     /**
      * execute code. Notice this must be execute in UI thread.
      * @return
@@ -1071,10 +1124,13 @@ public class MainActivity extends Activity {
     private boolean runCode() {
         try {
             //addLogWithColor(">>>" + currentInput.toString() + "\n", GlobalState.normal);
-            JsNative.safeEval(ctx, currentInput.toString());
+            String codeInput=currentInput.toString();
+            JsNative.safeEval(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
             if(s!=null)
                 addLogWithColor("<<<"+ s+"\n", GlobalState.info);
+            codeHistory.add(codeInput);
+            currentHistory=codeHistory.size()-1;
             emptyInput();
         }
         catch (Exception e){
@@ -1125,6 +1181,26 @@ public class MainActivity extends Activity {
                 currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), markPosition, currentInput.length(), 0);
         }
         updateUI();
+    }
+
+    private boolean historyUp(){
+        if(currentHistory>0){
+            currentHistory-=1;
+            currentInput.clear();
+            currentInput.append(codeHistory.get(currentHistory));
+            updateUI();
+        }
+
+        return true;
+    }
+    private boolean historyDown(){
+        if(currentHistory<(codeHistory.size()-1)){
+            currentHistory+=1;
+            currentInput.clear();
+            currentInput.append(codeHistory.get(currentHistory));
+            updateUI();
+        }
+        return true;
     }
     private boolean cursorDown(){
         if(currentCaret<currentInput.length()-1){

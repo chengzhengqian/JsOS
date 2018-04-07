@@ -85,12 +85,12 @@ public class JsServer extends NanoHTTPD {
                     public void run() {
                         try {
                             GlobalState.printToLog(">>>\n"+content+"\n<<<\n",GlobalState.info);
-                            JsNative.safeEval(GlobalState.ctx, content);
-                            String s = JsNative.safeToString(GlobalState.ctx, -1);
-                            if (s != null) {
-                                GlobalState.printToLog("\n-----\n"+s+"\n-----\n",
-                                        GlobalState.normal);
-                                JsNative.pop(GlobalState.ctx);
+                            synchronized (GlobalState.command){
+                                if(GlobalState.command.state==Command.running){
+                                    GlobalState.command.code=content;
+                                    GlobalState.command.id=-1;
+                                    GlobalState.command.notify();
+                                }
                             }
                         }catch (Exception e){
                             GlobalState.printToLog(e.toString(),GlobalState.error);

@@ -10,8 +10,9 @@ public class GlobalState {
     static int caretBackground= Color.BLUE;
     public static boolean isUIRunning;
     public static String serverIndexHtml;
-    public static long ctx;
+    //public static long ctx;
     public static boolean isServerRunning=false;
+    public static Command command;
 
     static void printToLog(final String s, final int Color){
         currentActivity.runOnUiThread(new Runnable() {

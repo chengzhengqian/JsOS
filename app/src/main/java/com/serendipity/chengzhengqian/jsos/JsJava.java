@@ -9,15 +9,16 @@ import java.util.List;
  * */
 public class JsJava {
     /**
-     * the name wil appear in js enviroment
+     * the name wil appear in js enviroment as this.name set
      */
 
 
     public static String name="java";
+    private final IOLocker ioLocker;
     public MainActivity app;
     public static final String version="1.0.0";
-    public JsJava(MainActivity m){
-        this.app=m;
+    public JsJava(MainActivity m, IOLocker s){
+        this.app=m;this.ioLocker=s;
     }
     public static void print(Object s){
         GlobalState.printToLog(s.toString(),GlobalState.normal);
@@ -26,8 +27,8 @@ public class JsJava {
             "com.serendipity.chengzhengqian.jsos.",
             "android.widget."
     ));
-    public static Class<?> loadWithLists(String name){
-        for(String s:PATH){
+    public static Class<?> loadWithPATH(String name, List<String> path){
+        for(String s:path){
             try{
                 return Class.forName(s+name);
             }
@@ -43,7 +44,24 @@ public class JsJava {
             return Class.forName(name);
         } catch (ClassNotFoundException e) {
 
-            return loadWithLists(name);
+            return loadWithPATH(name,PATH);
+        }
+
+    }
+
+    public String read(){
+        synchronized (ioLocker){
+            if(!ioLocker.isBlocked) {
+                try {
+                    ioLocker.isBlocked=true;
+                    ioLocker.wait();
+                    ioLocker.isBlocked=false;
+                    return ioLocker.content.toString();
+                } catch (InterruptedException e) {
+                    GlobalState.printToLog(e.toString(), GlobalState.error);
+                }
+            }
+            return "";
         }
 
     }

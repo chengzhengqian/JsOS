@@ -25,8 +25,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
-import static com.serendipity.chengzhengqian.jsos.GlobalState.ctx;
 
 public class MainActivity extends Activity {
 
@@ -35,11 +35,12 @@ public class MainActivity extends Activity {
         System.loadLibrary("js-native");
     }
     ConstraintLayout mainCL;
-    private String runCommand="##run";
-    private String markCommand="##mrk";
-    private String copyCommand="##cp";
-    private String cutCommand="##ct";
-    private String pasteCommand="##pst";
+    private String runCommand="##\uD83D\uDE80";
+    private String autoCompleteCommand="##�";
+    private String markCommand="##\uD83D\uDD16";
+    private String copyCommand="##⎘";
+    private String cutCommand="##✂";
+    private String pasteCommand="##⎀";
     private boolean markon =false;
 
     /*
@@ -64,7 +65,7 @@ public class MainActivity extends Activity {
         parent.addView(gl);
         return gl;
     }
-
+    public static String enterIcon="⏎";
     class MultiButton extends Button{
         //name to show
         //code internal symbol (inital apparence)
@@ -76,14 +77,16 @@ public class MainActivity extends Activity {
             String command=pressedCode+code;
             if(shapeInputMap.containsKey(command)){
                 String s=shapeInputMap.get(command);
+                if(isShiftOn)
+                    s=convertShift(s);
                 if(s.startsWith("##")){
                     this.setText(s.substring(2));
                 }
                 else {
                     if(s.equals("\n"))
-                        this.setText("\\n");
+                        this.setText(enterIcon);
                     else if(s.equals(" "))
-                        this.setText(":s:");
+                        this.setText("␣");
                     else
                         this.setText(s);
                 }
@@ -141,12 +144,16 @@ public class MainActivity extends Activity {
 
         return b;
     }
-    public static String shift=",";
-    public static String ctrl =".";
-    public static String alt ="@";
-    public static String meta ="#";
-    public static String backspace="<";
-    public static String enter="+";
+    public static String shift="⬆";
+    public static String ctrl ="␣";
+    public static String alt =".";
+    public static String meta =",";
+    public static String shiftIcon="⇧";
+    public static String ctrlIcon ="⌃";
+    public static String altIcon ="⌥";
+    public static String metaIcon ="⌘";
+    public static String backspace="⌫";
+    public static String enter="↸";
     public static boolean isShiftOn=false;
     public static boolean isMetaOn=false;
     public static boolean isCtrOn=false;
@@ -376,22 +383,50 @@ public class MainActivity extends Activity {
             }
         }
     }
+    public String convertShift(String s){
+        if(s.equals("1"))
+            return "!";
+        else if(s.equals("2"))
+            return "@";
+        else if(s.equals("3"))
+            return "#";
+        else if(s.equals("4"))
+            return "$";
+        else if(s.equals("5"))
+            return "%";
+        else if(s.equals("6"))
+            return "^";
+        else if(s.equals("7"))
+            return "&";
+        else if(s.equals("8"))
+            return "|";
+        else if(s.equals("9"))
+            return "\\";
+        else if(s.equals("0"))
+            return "~";
+        else if(s.equals("("))
+            return ")";
+        else if(s.equals("["))
+            return "]";
+        else if(s.equals("{"))
+            return "}";
+        else if(s.equals("+"))
+            return "\"";
+        else if(s.equals("-"))
+            return "_";
+        else if(s.equals("="))
+            return "'";
+        else if(s.equals(";"))
+            return ":";
+        else
+            return s.toUpperCase();
+    }
     //return the number of added characters
     private int handleInput(String s,
                             boolean isShiftOn, boolean isCtrOn, boolean isAltOn, boolean isMetaOn, boolean IsEdit) {
         if(isShiftOn){
-            s=s.toUpperCase();
-        }
-        if (isCtrOn) {
-            if(!IsEdit) {
-                if (s.equals("f"))
-                    cursorRight();
-                else if (s.equals("b"))
-                    cursorLeft();
-                else if (s.equals("r"))
-                    runCode();
-            }
-            return 0;
+            if(!s.startsWith("##"))
+                s=convertShift(s);
         }
 
 
@@ -400,24 +435,29 @@ public class MainActivity extends Activity {
                 runCode();
             return 0;
         }
-        if (s.equals(copyCommand)) {
+        else if (s.equals(copyCommand)) {
             if(!IsEdit)
                 copy();
             return 0;
         }
-        if (s.equals(cutCommand)) {
+        else if (s.equals(cutCommand)) {
             if(!IsEdit)
                 cut();
             return 0;
         }
-        if (s.equals(pasteCommand)) {
+        else if (s.equals(pasteCommand)) {
             if(!IsEdit)
                 paste();
             return 0;
         }
-        if(s.equals(markCommand)) {
+        else if(s.equals(markCommand)) {
             if(!IsEdit)
                 setMark();
+            return 0;
+        }
+        else if(s.equals(autoCompleteCommand)) {
+            if(!IsEdit)
+                autocomplete();
             return 0;
         }
         addString(s);
@@ -515,23 +555,34 @@ public class MainActivity extends Activity {
         codes.put(o,c);
         codePositions.put(c,op);
     }
+
+    private String code_part1_LeftTopRightDown ="╲";
+    private String code_part1_TopDown ="┃";
+    private String code_part1_TopCurve ="╯";
+    private String code_part1_RightTopLeftDown ="╱";
+    private String code_part1_LeftRight ="━";
+    private String code_part2_Circle="○";
+    private String code_part2_Up="◡";
+    private String code_part2_down="◠";
+    private String code_part2_left="<";
+    private String code_part2_right=">";
     private void initKeys(){
         positions.clear();codes.clear();
-        addKey("\\",0,0,0);
-        addKey("|",0,1,0);
-        addKey("j",0,2,0);
+        addKey(code_part1_LeftTopRightDown,0,0,0);
+        addKey(code_part1_TopDown,0,1,0);
+        addKey(code_part1_TopCurve,0,2,0);
 
-        addKey("/",1,0,0);
-        addKey("-",1,1,0);
+        addKey(code_part1_RightTopLeftDown,1,0,0);
+        addKey(code_part1_LeftRight,1,1,0);
         addKey(ctrl,1,2,0);
 
-        addKey(">",0,0,1);
-        addKey("c",0,1,1);
+        addKey(code_part2_right,0,0,1);
+        addKey(code_part2_left,0,1,1);
         addKey(shift,0,2,1);
 
-        addKey("u",1,0,1);
-        addKey("o",1,1,1);
-        addKey("n",1,2,1);
+        addKey(code_part2_Up,1,0,1);
+        addKey(code_part2_Circle,1,1,1);
+        addKey(code_part2_down,1,2,1);
 
         addKey(backspace,1,0,2);
         addKey(enter,2,0,2);
@@ -542,72 +593,76 @@ public class MainActivity extends Activity {
         shapeInputMap.put(a+b,result);
         shapeInputMap.put(b+a,result);
     }
+
+
     private void initShapeInputMap(){
         shapeInputMap.clear();
         String[][] keyMapWithoutSpecialKey=new String[][]{
-                new String[]{"c","\\","a"},
-                new String[]{"\\","o","b"},
-                new String[]{"c","j","c"},
-                new String[]{"o","/","d"},
-                new String[]{"c","-","e"},
-                new String[]{"/",">","f"},
-                new String[]{"o","j","g"},
-                new String[]{"|","n","h"},
-                new String[]{"j","n","i"},
-                new String[]{"j",">","j"},
-                new String[]{"|","c","k"},
-                new String[]{"|","u","l"},
-                new String[]{"n","\\","m"},
-                new String[]{"n","-","n"},
-                new String[]{"o","-","o"},
-                new String[]{"|","o","p"},
-                new String[]{"n","/","q"},
-                new String[]{">","-","r"},
-                new String[]{"/","c","s"},
-                new String[]{"|",">","t"},
-                new String[]{"u","-","u"},
-                new String[]{"\\","u","v"},
-                new String[]{"u","/","w"},
-                new String[]{"\\","/","x"},
-                new String[]{"\\",alt,"x"},
-                new String[]{"u","j","y"},
-                new String[]{"\\",">","z"},
+                new String[]{code_part2_left, code_part1_LeftTopRightDown,"a"},
+                new String[]{code_part1_LeftTopRightDown,code_part2_Circle,"b"},
+                new String[]{code_part2_left, code_part1_TopCurve,"c"},
+                new String[]{code_part2_Circle, code_part1_RightTopLeftDown,"d"},
+                new String[]{code_part2_left,code_part1_LeftRight,"e"},
+                new String[]{code_part1_RightTopLeftDown,code_part2_right,"f"},
+                new String[]{code_part2_Circle, code_part1_TopCurve,"g"},
+                new String[]{code_part1_TopDown,code_part2_down,"h"},
+                new String[]{code_part1_TopCurve,code_part2_down,"i"},
+                new String[]{code_part1_TopCurve,code_part2_right,"j"},
+                new String[]{code_part1_TopDown,code_part2_left,"k"},
+                new String[]{code_part1_TopDown,code_part2_Up,"l"},
+                new String[]{code_part2_down, code_part1_LeftTopRightDown,"m"},
+                new String[]{code_part2_down,code_part1_LeftRight,"n"},
+                new String[]{code_part2_Circle,code_part1_LeftRight,"o"},
+                new String[]{code_part1_TopDown,code_part2_Circle,"p"},
+                new String[]{code_part2_down, code_part1_RightTopLeftDown,"q"},
+                new String[]{code_part2_right,code_part1_LeftRight,"r"},
+                new String[]{code_part1_RightTopLeftDown,code_part2_left,"s"},
+                new String[]{code_part1_TopDown,code_part2_right,"t"},
+                new String[]{code_part2_Up,code_part1_LeftRight,"u"},
+                new String[]{code_part1_LeftTopRightDown,code_part2_Up,"v"},
+                new String[]{code_part2_Up, code_part1_RightTopLeftDown,"w"},
+                new String[]{code_part1_LeftTopRightDown, code_part1_RightTopLeftDown,"x"},
+                new String[]{code_part1_LeftTopRightDown,alt,"x"},
+                new String[]{code_part2_Up, code_part1_TopCurve,"y"},
+                new String[]{code_part1_LeftTopRightDown,code_part2_right,"z"},
                 new String[]{shift, ctrl," "},
                 new String[]{ctrl,alt,"."},
                 new String[]{meta,shift,","},
                 new String[]{meta,alt,"{"},
 
-                new String[]{enter,"-",runCommand},
+                new String[]{enter,code_part1_LeftRight,runCommand},
                 new String[]{enter,meta,markCommand},
-                new String[]{enter,"j",copyCommand},
-                new String[]{enter,"<",cutCommand},
+                new String[]{enter, code_part1_TopCurve,copyCommand},
+                new String[]{enter,backspace,cutCommand},
                 new String[]{enter,ctrl,pasteCommand},
-                new String[]{enter,"|","\n"},
+                new String[]{enter, code_part1_TopDown,"\n"},
+                new String[]{enter, code_part1_LeftTopRightDown,autoCompleteCommand},
+                new String[]{enter, code_part1_RightTopLeftDown,";"},
 
 
-                new String[]{shift,"\\","1"},
-                new String[]{shift,"/","2"},
-                new String[]{shift,"|","3"},
-                new String[]{shift,"-","4"},
-                new String[]{shift,"j","5"},
+                new String[]{shift, code_part1_LeftTopRightDown,"1"},
+                new String[]{shift, code_part1_RightTopLeftDown,"2"},
+                new String[]{shift, code_part1_TopDown,"3"},
+                new String[]{shift,code_part1_LeftRight,"4"},
+                new String[]{shift, code_part1_TopCurve,"5"},
 
-                new String[]{ctrl,">","6"},
-                new String[]{ctrl,"u","7"},
-                new String[]{ctrl,"c","8"},
-                new String[]{ctrl,"o","9"},
-                new String[]{ctrl,"n","0"},
+                new String[]{ctrl,code_part2_right,"6"},
+                new String[]{ctrl,code_part2_Up,"7"},
+                new String[]{ctrl,code_part2_left,"8"},
+                new String[]{ctrl,code_part2_Circle,"9"},
+                new String[]{ctrl,code_part2_down,"0"},
                 
-                new String[]{alt,"/","/"},
-                new String[]{alt,"|","+"},
-                new String[]{alt,"-","-"},
-                new String[]{alt,"j","*"},
+                new String[]{alt, code_part1_RightTopLeftDown,"/"},
+                new String[]{alt, code_part1_TopDown,"+"},
+                new String[]{alt,code_part1_LeftRight,"-"},
+                new String[]{alt, code_part1_TopCurve,"*"},
 
 
-                new String[]{meta,">",">"},
-                new String[]{meta,"u","<"},
-                new String[]{meta,"c","="},
-                new String[]{meta,"o","("},
-                new String[]{meta,"n","["},
+                new String[]{meta,code_part2_right,">"},
+                new String[]{meta,code_part2_Up,"="},
+                new String[]{meta,code_part2_left,"<"},
+                new String[]{meta,code_part2_Circle,"["},
+                new String[]{meta,code_part2_down,"("},
 
 
         };
@@ -668,24 +723,22 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         GlobalState.currentActivity=this;
-
+        GlobalState.command=command;
         initUI();
-        initJsCtx();
         if(ISAUTOMATICALLYSTARTSERVER)
             startServer();
-        //runTutorials(); this will show some examples that use duktape api
+        JsThread t=new JsThread(command,this,ioLocker);
+        t.start();
     }
-
+    IOLocker ioLocker=new IOLocker();
+    Command command =new Command("java.print('from main')");
     protected void onDestroy(){
         super.onDestroy();
-        delJsCtx();
     }
     public boolean ISAUTOMATICALLYSTARTSERVER=true;
     protected void onResume(){
         super.onResume();
         registerState();
-//        runTest();
-//        runTest2();
     }
     protected void onPause(){
         super.onPause();
@@ -696,11 +749,6 @@ public class MainActivity extends Activity {
         GlobalState.isUIRunning=false;
     }
 
-    private void delJsCtx()
-    {
-        JsNative.releaseJavaHandle(ctx);
-        JsNative.destroyHeap(ctx);
-    }
 
 
     private void startServer() {
@@ -743,22 +791,39 @@ public class MainActivity extends Activity {
         GlobalState.isUIRunning=true;
     }
 
-    private void initJsCtx() {
-        ctx=JsNative.createHeapDefault();
-        JsNative.registerJavaHandle(ctx);
-        JsNative.registerProxyHandleGet(ctx);
-        JsNative.registerProxyHandleSet(ctx);
-        JsNative.registerJsObjectFinalizer(ctx);
-        JsNative.registerJsObejctProperties(ctx);
-        JsNative.registerFunctionHandle(ctx);
-        JsNative.pushObject(ctx,new JsJava(this),JsJava.name);
+
+    String modelLine="%d %s %d";
+    private boolean isTooLarge(String s){
+        float tw=jsLog.getPaint().measureText(s);
+        return (tw>=jsLog.getMeasuredWidth()-80);
     }
-    String modelLine="-------pos:%d-his:%d------\n";
+    private String wrapToFitLine(String target){
+        StringBuilder s=new StringBuilder();
+        s.append(target);
+        boolean istoolarge=false;
+        while(!istoolarge){
+            s.append("-");
+            s.insert(0,"-");
+            istoolarge=isTooLarge(s.toString());
+        };
+        return s.toString();
+    }
     public void updateUI(){
         /* show the current input again*/
         SpannableStringBuilder sb=new SpannableStringBuilder();
         sb.append(output);
-        sb.append(String.format(modelLine,currentCaret,currentHistory));
+        String state="";
+        if(currentCaret<currentInput.length())
+            if(currentInput.charAt(currentCaret)=='\n'){
+                state+=enterIcon;
+            }
+        if(isShiftOn)state+=shiftIcon;
+        if(isCtrOn)state+=ctrlIcon;
+        if(isAltOn)state+=altIcon;
+        if(isMetaOn)state+=metaIcon;
+        String mode=(String.format(modelLine,currentCaret,state, currentHistory));
+        sb.append("\n"+wrapToFitLine(mode)+"\n");
+        int previousSize=sb.length();
         sb.append(currentInput);
         if(currentCaret==currentInput.length()){
             sb.append(" ");
@@ -812,38 +877,38 @@ public class MainActivity extends Activity {
      * js side (improve)
      * java side
      */
-    private void runTest(){
-        jsLog.append(Utils.getCurrentTime()+" start test\n");
-        JsNative.safeEval(ctx,
-                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
-                "for(i=0;i<4000;i++)\n" +
-                "{\n" +
-                " \n" +
-                " b=c.new(i)\n" +
-                " s=s+b.intField\n" +
-                "}\n" +
-                "s"
-                );
-        jsLog.append(JsNative.safeToString(ctx,-1)+"\n");
-        jsLog.append(Utils.getCurrentTime()+" start test\n");
-
-    }
-    private void runTest2(){
-        jsLog.append(Utils.getCurrentTime()+" start test\n");
-        JsNative.safeEval(ctx,
-                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
-                        "for(i=0;i<4000;i++)\n" +
-                        "{\n" +
-                        " \n" +
-                        " b=c.new(i)\n" +
-                        " s=s+b.intMethod();\n" +
-                        "}\n" +
-                        "s"
-        );
-        jsLog.append(JsNative.safeToString(ctx,-1)+"\n");
-        jsLog.append(Utils.getCurrentTime()+" start test\n");
-
-    }
+//    private void runTest(){
+//        jsLog.append(Utils.getCurrentTime()+" start test\n");
+//        JsNative.safeEval(ctx,
+//                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
+//                "for(i=0;i<4000;i++)\n" +
+//                "{\n" +
+//                " \n" +
+//                " b=c.new(i)\n" +
+//                " s=s+b.intField\n" +
+//                "}\n" +
+//                "s"
+//                );
+//        jsLog.append(JsNative.safeToString(ctx,-1)+"\n");
+//        jsLog.append(Utils.getCurrentTime()+" start test\n");
+//
+//    }
+//    private void runTest2(){
+//        jsLog.append(Utils.getCurrentTime()+" start test\n");
+//        JsNative.safeEval(ctx,
+//                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
+//                        "for(i=0;i<4000;i++)\n" +
+//                        "{\n" +
+//                        " \n" +
+//                        " b=c.new(i)\n" +
+//                        " s=s+b.intMethod();\n" +
+//                        "}\n" +
+//                        "s"
+//        );
+//        jsLog.append(JsNative.safeToString(ctx,-1)+"\n");
+//        jsLog.append(Utils.getCurrentTime()+" start test\n");
+//
+//    }
     private void runTutorials(){
 
         JsNativeExamples.init();
@@ -861,12 +926,12 @@ public class MainActivity extends Activity {
         jsLog.append((JsNativeExamples.tutorial12()));
         JsNativeExamples.close();
     }
-    public void addChar(char c){
+    public boolean addChar(char c){
         if(c=='(')
         {
             addString("()");
             cursorLeft();
-            return;
+            return true;
         }
 
         currentInput.insert(currentCaret,String.valueOf(c));
@@ -874,9 +939,10 @@ public class MainActivity extends Activity {
         currentCaret+=1;
         setSelected();
         updateInput();
+        return true;
     }
     String automatic="";
-    public void addString(String s){
+    public boolean addString(String s){
         currentInput.insert(currentCaret,s);
         currentCaret+=s.length();
         if(s.equals("(")){
@@ -890,6 +956,7 @@ public class MainActivity extends Activity {
         }
         setSelected();
         updateInput();
+        return true;
     }
 
     int outputIndex=0;
@@ -922,7 +989,26 @@ public class MainActivity extends Activity {
                 return paste();
             else if(keycode==KeyEvent.KEYCODE_E)
                 return endOfLine();
+            else if(keycode==KeyEvent.KEYCODE_A)
+                return beginningOfLine();
+            else if(keycode==KeyEvent.KEYCODE_I)
+                return writeToIO();
+            else if(keycode==KeyEvent.KEYCODE_L)
+                return addChar('\n');
+            else if(keycode==KeyEvent.KEYCODE_T)
+                return addString("  ");
 
+            else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET){
+                return historyDown();
+            }
+            else if(keycode==KeyEvent.KEYCODE_LEFT_BRACKET){
+                return historyUp();
+            }
+        }
+        else if(event.isAltPressed()){
+            if(keycode==KeyEvent.KEYCODE_W){
+                return copy();
+            }
         }
         else if(keycode>=KeyEvent.KEYCODE_A && keycode<=KeyEvent.KEYCODE_Z){
             char base='a';
@@ -944,7 +1030,10 @@ public class MainActivity extends Activity {
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_PERIOD){
-            addChar('.');
+            if(event.isShiftPressed())
+                addChar('>');
+            else
+                addChar('.');
             //addLogWithColor(getCurrentVariableHint()+"\n",GlobalState.info);
             return true;
         }
@@ -960,6 +1049,14 @@ public class MainActivity extends Activity {
             cursorLeft();
             return true;
         }
+        else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET) {
+            if (event.isShiftPressed())
+                addString("}");
+            else
+                addString("]");
+            cursorLeft();
+            return true;
+        }
         else if(keycode==KeyEvent.KEYCODE_APOSTROPHE){
             if(event.isShiftPressed()){
                 addString("\"\"");
@@ -970,7 +1067,14 @@ public class MainActivity extends Activity {
             cursorLeft();
             return true;
         }
-
+        else if(keycode==KeyEvent.KEYCODE_DPAD_UP){
+            historyUp();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_DPAD_DOWN){
+            historyDown();
+            return true;
+        }
         else if(keycode==KeyEvent.KEYCODE_EQUALS){
             if(event.isShiftPressed()){
                 addChar('+');
@@ -991,8 +1095,15 @@ public class MainActivity extends Activity {
                 addChar(';');
             return true;
         }
+        else if(keycode==KeyEvent.KEYCODE_COMMA){
+            if(event.isShiftPressed()){
+                addChar('<');
+            }
+            else
+                addChar(',');
+        }
         else if(keycode==KeyEvent.KEYCODE_TAB){
-            addLogWithColor(getCurrentVariableHint()+"\n",GlobalState.info);
+            return autocomplete();
         }
         else if(!(keycode==KeyEvent.KEYCODE_CTRL_LEFT||keycode==KeyEvent.KEYCODE_SHIFT_LEFT
                 ||keycode==KeyEvent.KEYCODE_DPAD_RIGHT
@@ -1001,17 +1112,35 @@ public class MainActivity extends Activity {
 
         return true;
     }
-
-    private String getCurrentVariableValue() {
-        String s=getCurrentVariable();
-        JsNative.safeEval(ctx,s);
-        if(JsNative.isError(ctx,-1)){
-            return "undefined variable";
+    public boolean autocomplete(){
+        List<String> results=getCurrentVariableHint();
+        int hintSize= results.get(0).length();
+        if(results.size()==2){
+            addString(results.get(1).substring(hintSize));
         }
-        String result=JsNative.safeToString(ctx,-1);
-        JsNative.pop(ctx);
-        return result;
+        else {
+            StringBuilder sb=new StringBuilder();
+            for(String s:results){
+                if(s.length()>hintSize)
+                    sb.append(s.substring(hintSize)+",");
+            }
+            sb.append("\n");
+            addLogWithColor(sb.toString(),GlobalState.info);
+        }
+
+        return true;
     }
+    long ctx=0;
+//    private String getCurrentVariableValue() {
+//        String s=getCurrentVariable();
+//        JsNative.safeEval(ctx,s);
+//        if(JsNative.isError(ctx,-1)){
+//            return "undefined variable";
+//        }
+//        String result=JsNative.safeToString(ctx,-1);
+//        JsNative.pop(ctx);
+//        return result;
+//    }
 
     private boolean isSymbol(char a){
         if(a>='a'&&a<='z')
@@ -1060,55 +1189,40 @@ public class MainActivity extends Activity {
             }
         }
     }
-    private String getCurrentVariableHint(){
-        JsNative.clearStack(ctx);
+    public static String[] javascriptkeywords=new String[]{"function(){\n}","for(;;){\n}",
+            "while(){\n}"
+    };
+    private List<String> getCurrentVariableHint(){
+        LinkedList<String> result=new LinkedList<>();
         String variable=getCurrentVariable();
-        String result="";
         String[] parsedForm=parseVariable(variable);
-        variable=parsedForm[0];
         String hint=parsedForm[1];
-        if(variable.equals("")){
-            JsNative.getGlobalString(ctx,JsNative.GETJSOBJECTPROPERTIES);
-            JsNative.pushGlobalObject(ctx);
-            JsNative.call(ctx,1);
-            result=JsNative.safeToString(ctx,-1);
-            JsNative.pop(ctx);
-            return result;
-        }
-        JsNative.safeEval(ctx,variable);
-        int type=JsNative.getType(ctx,-1);
-        if(type!=JsNative.DUK_TYPE_OBJECT){
-            return variable+" is not object!";
-        }
-        else {
+        result.add(hint);
+        synchronized (command){
+            command.setHint(parsedForm);
+            command.notify();
             try {
-                JsNative.getPropString(ctx,-1,JsNative.PROXYGETBAREOBJECTKEY);
-                if(JsNative.getType(ctx,-1)==JsNative.DUK_TYPE_OBJECT) {
-                    JsNative.pop(ctx);
-                    Object b = JsNative.getProxyObject(ctx, -1);
-                    JsNative.pop(ctx);
-                    return JsReflection.showMethods(b,hint);
+                command.wait();
+                command.state=Command.running;
+                String[] candidates=command.hintResult.split(",");
+                for(String s:candidates){
+                    if(s.startsWith(hint)){
+                        result.add(s);
+                    }
                 }
-                else{
-                    JsNative.pop(ctx);
-                    JsNative.getGlobalString(ctx,JsNative.GETJSOBJECTPROPERTIES);
-                    JsNative.insert(ctx,-2);
-                    JsNative.call(ctx,1);
-//                    JsNative.pushContextDump(ctx);
-                    result=JsNative.safeToString(ctx,-1);
-                    JsNative.clearStack(ctx);
-//                    JsNative.call(ctx,1);
-//                    result=JsNative.safeToString(ctx,-1);
-//                    JsNative.pop(ctx);
-                    return result;
+                if(parsedForm[0].equals("")){
+                    for(String s:javascriptkeywords){
+                        if(s.startsWith(hint)){
+                            result.add(s);
+                        }
+                    }
                 }
-
-
-            }catch (Exception e) {
-                return "null";
+                return result;
+            } catch (InterruptedException e) {
+                addLogWithColor(e.toString(),GlobalState.error);
             }
         }
-
+        return result;
     }
     private void emptyInput(){
         currentInput=new SpannableStringBuilder();
@@ -1118,21 +1232,29 @@ public class MainActivity extends Activity {
     public static LinkedList<String> codeHistory=new LinkedList<>();
     public static int currentHistory=-1;
     /**
-     * execute code. Notice this must be execute in UI thread.
+     * execute code. Notice this must be execute in UI thread.xxx
+     * this runs on the seperate thread,improves teh previous version
      * @return
      */
     private boolean runCode() {
         try {
-            //addLogWithColor(">>>" + currentInput.toString() + "\n", GlobalState.normal);
-            String codeInput=currentInput.toString();
-            JsNative.safeEval(ctx,codeInput);
-            String s=JsNative.safeToString(ctx, -1);
-            codeHistory.add(codeInput);
-            currentHistory=codeHistory.size()-1;
-            if(s!=null)
-                addLogWithColor("Out["+(currentHistory+1)+"]: "+ s+"\n", GlobalState.info);
 
-            emptyInput();
+            String codeInput=currentInput.toString();
+            synchronized (ioLocker) {
+                if(!ioLocker.isBlocked) {
+                    synchronized (command) {
+                        command.id = codeHistory.size();
+                        command.code = codeInput;
+                        command.notify();
+                    }
+                    codeHistory.add(codeInput);
+                    currentHistory = codeHistory.size() - 1;
+                    emptyInput();
+                }
+                else{
+                    addLogWithColor("js thread is io blocked\n",GlobalState.error);
+                }
+            }
         }
         catch (Exception e){
             addLogWithColor(e.toString()+"\n",GlobalState.error);
@@ -1163,6 +1285,18 @@ public class MainActivity extends Activity {
         updateInput();
         return true;
     }
+    private boolean cursorRight(int n) {
+
+        if (currentCaret+n <= currentInput.length()) {
+            currentCaret=currentCaret+n;
+            setSelected();
+        }
+        else{
+            currentCaret=currentInput.length();
+        }
+        updateInput();
+        return true;
+    }
 
     private void setSelected(){
         currentInput.clearSpans();
@@ -1188,6 +1322,7 @@ public class MainActivity extends Activity {
         if(currentHistory>0){
             currentHistory-=1;
             currentInput.clear();
+            currentCaret=0;
             currentInput.append(codeHistory.get(currentHistory));
             updateUI();
         }
@@ -1198,37 +1333,30 @@ public class MainActivity extends Activity {
         if(currentHistory<(codeHistory.size()-1)){
             currentHistory+=1;
             currentInput.clear();
+            currentCaret=0;
             currentInput.append(codeHistory.get(currentHistory));
             updateUI();
         }
         return true;
     }
-    private boolean cursorDown(){
-        if(currentCaret<currentInput.length()-1){
-            currentCaret+=1;
+    private boolean cursorUp(){
+        int origin=currentCaret;
+        beginningOfLine();
+        int lineStart=currentCaret;
+        cursorLeft();
+        beginningOfLine();
+        int previousLineStart=currentCaret;
+        if(origin-lineStart<lineStart-previousLineStart){
+            cursorRight(origin-lineStart);
         }
-        while (currentCaret<currentInput.length()-1&&
-                !(currentInput.charAt(currentCaret-1)=='\n')){
-            currentCaret+=1;
-        }
-        setSelected();
-        //GlobalState.printToLog("down"+currentCaret+"\n",GlobalState.info);
-        //cursorRight();
+        else
+            endOfLine();
         return true;
     }
-    private boolean cursorUp(){
-        if(currentCaret>1){
-            currentCaret-=1;
-        }
-        while(currentCaret>0){
-            if(!(currentInput.charAt(currentCaret-1)=='\n'))
-                    currentCaret-=1;
-            else
-                break;
-        }
-        setSelected();
-        //GlobalState.printToLog("up"+currentCaret+"\n",GlobalState.info);
-        //cursorLeft();
+    private boolean cursorDown(){
+        int origin=currentCaret;
+        endOfLine();
+        cursorRight();
         return true;
     }
     private boolean cursorLeft() {
@@ -1283,12 +1411,40 @@ public class MainActivity extends Activity {
         return true;
     }
     private boolean paste(){
-        addString(copyboards.get(copyboards.size()-1));
+        if(copyboards.size()>0)
+            addString(copyboards.get(copyboards.size()-1));
         return true;
     }
     private boolean endOfLine(){
-        cursorDown();
-        cursorLeft();
+        while(currentCaret<currentInput.length()
+                &&(currentInput.charAt(currentCaret)!='\n')){
+            currentCaret+=1;
+            if(currentCaret==currentInput.length())
+                break;
+        }
+        setSelected();
+
+        return true;
+    }
+
+    private boolean beginningOfLine(){
+        while(currentCaret>0
+                &&(currentInput.charAt(currentCaret-1)!='\n')){
+            currentCaret-=1;
+            if(currentCaret==0)
+                break;
+        }
+        setSelected();
+
+        return true;
+    }
+    private boolean writeToIO(){
+        String content=currentInput.toString();
+        synchronized (ioLocker){
+            ioLocker.content.delete(0,ioLocker.content.length());
+            ioLocker.content.append(content);
+            ioLocker.notify();
+        }
         return true;
     }
 }

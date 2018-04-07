@@ -186,11 +186,11 @@ public class JsReflection {
         StringBuilder s=new StringBuilder();
         for(Field f:c.getDeclaredFields()){
             if(hint.equals("")||f.getName().startsWith(hint))
-                s.append("@"+f.getName());
+                s.append(","+f.getName());
         }
         for(Method f:c.getDeclaredMethods()){
             if(hint.equals("")||f.getName().startsWith(hint))
-                s.append("#"+f.getName());
+                s.append(","+f.getName());
         }
         return s.toString();
     }

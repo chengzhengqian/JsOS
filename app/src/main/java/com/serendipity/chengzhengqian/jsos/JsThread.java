@@ -1,7 +1,5 @@
 package com.serendipity.chengzhengqian.jsos;
 
-import android.support.constraint.solver.Goal;
-
 public class JsThread extends Thread {
     Command c;
     MainActivity app;
@@ -17,7 +15,7 @@ public class JsThread extends Thread {
     public static String transformFunc="__babel_func__";
     private void initBabel(){
         String babeljs=this.app.getRawResource(R.raw.babeljs);
-        JsNative.safeEval(ctx,babeljs);
+        JsNative.safeEvalString(ctx,babeljs);
         String s=JsNative.safeToString(ctx, -1);
         GlobalState.printToLog("\nbabel loaded: "+ s+"\n", GlobalState.info);
         JsNative.pushString(ctx,"function(old){return (Babel.transform(old,{presets:['es2015']}).code);}");
@@ -72,27 +70,35 @@ public class JsThread extends Thread {
         delJsCtx();
 
     }
+    public static String babletransformError="'bable error'";
     /* transform the code the stored in global variables*/
     private String transformCode(String codeInput){
         JsNative.pushString(ctx,codeInput);
         JsNative.putGlobalString(ctx,oldCode);
-        JsNative.safeEval(ctx,String.format("%s(%s)",transformFunc,oldCode));
-        JsNative.putGlobalString(ctx,newCode);
-        JsNative.getGlobalString(ctx,newCode);
-        String result=JsNative.getString(ctx,-1);
-        JsNative.pop(ctx);
-        return result;
+        int sucess;
+        sucess=JsNative.safeEvalString(ctx,String.format("%s(%s)",transformFunc,oldCode));
+        /*this is equivalent to the following two line code*/
+//        JsNative.pushString(ctx,String.format("%s(%s)",transformFunc,oldCode));
+//        sucess=JsNative.safeEval(ctx);
+        if(sucess==JsNative.DUK_EXEC_SUCCESS) {
+            JsNative.putGlobalString(ctx, newCode);
+            JsNative.getGlobalString(ctx, newCode);
+            String result = JsNative.getString(ctx, -1);
+            JsNative.pop(ctx);
+            return result;
+        }
+        return babletransformError;
     }
     private boolean runCode(String codeInput, int id,boolean useBable) {
         try {
             if(useBable) {
                 codeInput = transformCode(codeInput);
                 if(codeInput.length()>13){
-                    codeInput=codeInput.substring(13);
+                    codeInput=codeInput.substring(14);
                 }
-                GlobalState.printToLog(codeInput+"\n<<<\n",GlobalState.normal);
+                GlobalState.printToLog(codeInput+"\n",GlobalState.babelCode);
             }
-            JsNative.safeEval(ctx,codeInput);
+            JsNative.safeEvalString(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
             if(s!=null&&id>=0)
                 GlobalState.printToLog("\nOut:["+id+"]: "+ s+"\n", GlobalState.info);
@@ -116,7 +122,7 @@ public class JsThread extends Thread {
             JsNative.pop(ctx);
             return result;
         }
-        JsNative.safeEval(ctx,variable);
+        JsNative.safeEvalString(ctx,variable);
         int type=JsNative.getType(ctx,-1);
         if(type!=JsNative.DUK_TYPE_OBJECT){
             return variable+" is not object!";

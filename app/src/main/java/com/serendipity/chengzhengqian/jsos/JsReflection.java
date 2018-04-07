@@ -43,7 +43,7 @@ public class JsReflection {
         }
         else{
             if(JsNative.ISDEBUG)
-                GlobalState.printToLog("error in get class\n",GlobalState.info);
+                GlobalState.printToLog("Error in get class\n",GlobalState.infoDebug);
             return false;
         }
     }
@@ -56,8 +56,8 @@ public class JsReflection {
         }
         else {
             if(JsNative.ISDEBUG)
-                GlobalState.printToLog(String.format("try [obj:%s] as class instance, failed\n"
-                        ,obj.getClass().getSimpleName()),GlobalState.info);
+                GlobalState.printToLog(String.format("TRY [obj:%s] as class instance, failed\n"
+                        ,obj.getClass().getSimpleName()),GlobalState.infoDebug);
             return null;
         }
         return c;
@@ -76,8 +76,8 @@ public class JsReflection {
 
         } catch (Exception e) {
             if(JsNative.ISDEBUG)
-                GlobalState.printToLog(String.format("try [obj:%s] %s, %s\n"
-                    ,c.getSimpleName(), name,e.toString()),GlobalState.info);
+                GlobalState.printToLog(String.format("TRY [obj:%s] %s, %s\n"
+                    ,c.getSimpleName(), name,e.toString()),GlobalState.infoDebug);
 
         }
         return null;
@@ -158,7 +158,7 @@ public class JsReflection {
             }
             else {
                 if(JsNative.ISDEBUG){
-                    GlobalState.printToLog("find "+showMethod(m)+"\n",GlobalState.info);
+                    GlobalState.printToLog("FIND "+showMethod(m)+"\n",GlobalState.infoDebug);
                 }
                 return false;
             }
@@ -174,7 +174,8 @@ public class JsReflection {
         }
         else {
             if(JsNative.ISDEBUG){
-                GlobalState.printToLog("find constructor "+showMethod(m)+"\n",GlobalState.info);
+                GlobalState.printToLog("FIND constructor "+showMethod(m)+"\n",
+                        GlobalState.infoDebug);
             }
             return false;
         }
@@ -219,15 +220,15 @@ public class JsReflection {
             /*first check whether it is constructor*/
             if(name.equals(CONSTRUCTORTAG)){
                 if(JsNative.ISDEBUG)GlobalState.printToLog(
-                        "try constructor "+c.getSimpleName()+"\n",
-                        GlobalState.info);
+                        "TRY constructor "+c.getSimpleName()+"\n",
+                        GlobalState.infoDebug);
                 for(Constructor ct:c.getConstructors()){
                     if(isMatch(ct,paras)){
                         try {
                             r.sucess=true;
                             if(JsNative.ISDEBUG){
-                                GlobalState.printToLog(c.getSimpleName()+" constructor is invoked!\n",
-                                        GlobalState.info);
+                                GlobalState.printToLog("INVOKE constructor  "+c.getSimpleName()+"\n",
+                                        GlobalState.infoDebug);
                             }
                             return ct.newInstance(paras);
                         } catch (Exception e) {
@@ -236,8 +237,8 @@ public class JsReflection {
                     }
                 }
                 if(JsNative.ISDEBUG)
-                    GlobalState.printToLog("failed to find matched constructor, try methods\n",
-                        GlobalState.info);
+                    GlobalState.printToLog("FAIL to find matched constructor\n",
+                        GlobalState.infoDebug);
             }
 
             /*try quick method, in case this method has been called frequently,
@@ -290,12 +291,14 @@ public class JsReflection {
             if(r.sucess)
                 return result;
             if (JsNative.ISDEBUG)
-                GlobalState.printToLog("as class:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n", GlobalState.info);
+                GlobalState.printToLog("As class:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n",
+                        GlobalState.infoDebug);
             result = call(obj, name, paras, AsClass, r);
             if(r.sucess)
                 return result;
             if (JsNative.ISDEBUG)
-                GlobalState.printToLog("as object:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n", GlobalState.info);
+                GlobalState.printToLog("As object:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n",
+                        GlobalState.infoDebug);
             return result;
         }
         else{
@@ -303,12 +306,14 @@ public class JsReflection {
             if(r.sucess)
                 return result;
             if (JsNative.ISDEBUG)
-                GlobalState.printToLog("as object:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n", GlobalState.info);
+                GlobalState.printToLog("As object:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n",
+                        GlobalState.infoDebug);
             result = call(obj, name, paras, AsClass, r);
             if(r.sucess)
                 return result;
             if (JsNative.ISDEBUG)
-                GlobalState.printToLog("as class:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n", GlobalState.info);
+                GlobalState.printToLog("As class:"+showMethod(obj, name, paras) + " sucess:" + String.valueOf(r.sucess) + "\n",
+                        GlobalState.infoDebug);
             return result;
         }
     }

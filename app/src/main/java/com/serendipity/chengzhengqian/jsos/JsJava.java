@@ -48,7 +48,10 @@ public class JsJava {
         }
 
     }
-
+    public static boolean toggleDebug(){
+        JsNative.ISDEBUG=!JsNative.ISDEBUG;
+        return JsNative.ISDEBUG;
+    }
     public String read(){
         synchronized (ioLocker){
             if(!ioLocker.isBlocked) {

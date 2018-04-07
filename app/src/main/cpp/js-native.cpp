@@ -370,15 +370,27 @@ duk_ret_t __eval__(duk_context *ctx, void *udata) {
   duk_eval(ctx);
   return 1;
 }
-extern "C" JNIEXPORT void JNICALL
-Java_com_serendipity_chengzhengqian_jsos_JsNative_safeEval(JNIEnv* env, jobject /* this */, long ctx_, jstring jstr) {
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_safeEvalString(JNIEnv* env, jobject /* this */, long ctx_, jstring jstr) {
   duk_context * ctx=(duk_context*)ctx_;
   const char* cstr=getString(env, jstr);
   duk_push_string(ctx,cstr);
-  duk_safe_call(ctx, __eval__, NULL/* udata*/, 1 /*nargs*/, 1 /*nrets*/);
+  int result=duk_safe_call(ctx, __eval__, NULL/* udata*/, 1 /*nargs*/, 1 /*nrets*/);
   /* notice the system will store cstr in heap, (before checking is there same string)*/
   releaseString(env, jstr, cstr);
+  return result;
 }
+
+/* safe eval the string on stack top*/
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_safeEval(JNIEnv* env, jobject /* this */, long ctx_) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return  duk_safe_call(ctx, __eval__, NULL/* udata*/, 1 /*nargs*/, 1 /*nrets*/);
+}
+
+
+
+
 
 
 extern "C" JNIEXPORT void JNICALL
@@ -386,6 +398,7 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_insert(JNIEnv* env, jobject /*
   duk_context * ctx=(duk_context*)ctx_;
   duk_insert(ctx, idx);
 }
+
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_serendipity_chengzhengqian_jsos_JsNative_getPropString(JNIEnv* env, jobject /* this */, long ctx_,int idx, jstring jstr) {

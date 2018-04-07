@@ -903,7 +903,7 @@ public class MainActivity extends Activity {
      */
 //    private void runTest(){
 //        jsLog.append(Utils.getCurrentTime()+" start test\n");
-//        JsNative.safeEval(ctx,
+//        JsNative.safeEvalString(ctx,
 //                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
 //                "for(i=0;i<4000;i++)\n" +
 //                "{\n" +
@@ -919,7 +919,7 @@ public class MainActivity extends Activity {
 //    }
 //    private void runTest2(){
 //        jsLog.append(Utils.getCurrentTime()+" start test\n");
-//        JsNative.safeEval(ctx,
+//        JsNative.safeEvalString(ctx,
 //                "s=0; c=java.load(\"com.serendipity.chengzhengqian.jsos.TestClass\");\n" +
 //                        "for(i=0;i<4000;i++)\n" +
 //                        "{\n" +
@@ -1167,7 +1167,7 @@ public class MainActivity extends Activity {
     long ctx=0;
 //    private String getCurrentVariableValue() {
 //        String s=getCurrentVariable();
-//        JsNative.safeEval(ctx,s);
+//        JsNative.safeEvalString(ctx,s);
 //        if(JsNative.isError(ctx,-1)){
 //            return "undefined variable";
 //        }

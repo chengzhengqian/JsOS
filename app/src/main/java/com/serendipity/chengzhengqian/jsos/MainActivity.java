@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     ConstraintLayout mainCL;
     private String runCommand="##\uD83D\uDE80";
     private String autoCompleteCommand="##�";
+    private String clearOutputCommand="##\uD83D\uDDD1️";
     private String markCommand="##\uD83D\uDD16";
     private String copyCommand="##⎘";
     private String cutCommand="##✂";
@@ -412,12 +413,20 @@ public class MainActivity extends Activity {
             return "}";
         else if(s.equals("+"))
             return "\"";
+        else if(s.equals("*"))
+            return "'";
         else if(s.equals("-"))
             return "_";
         else if(s.equals("="))
             return "'";
         else if(s.equals(";"))
             return ":";
+        else if(s.equals("<"))
+            return "`";
+        else if(s.equals(">"))
+            return "=>";
+        else if(s.equals("/"))
+            return "?";
         else
             return s.toUpperCase();
     }
@@ -460,8 +469,19 @@ public class MainActivity extends Activity {
                 autocomplete();
             return 0;
         }
+        else if(s.equals(clearOutputCommand)) {
+            if(!IsEdit)
+                clearOutput();
+            return 0;
+        }
         addString(s);
         return s.length();
+    }
+
+    public boolean clearOutput(){
+        output.clear();
+        updateUI();
+        return true;
     }
     public static float MoveCorrectionThred=100;
     private class PressedPoint{
@@ -564,8 +584,9 @@ public class MainActivity extends Activity {
     private String code_part2_Circle="○";
     private String code_part2_Up="◡";
     private String code_part2_down="◠";
-    private String code_part2_left="<";
-    private String code_part2_right=">";
+    private String code_part2_left="◑";
+
+    private String code_part2_right="∠";
     private void initKeys(){
         positions.clear();codes.clear();
         addKey(code_part1_LeftTopRightDown,0,0,0);
@@ -622,13 +643,14 @@ public class MainActivity extends Activity {
                 new String[]{code_part1_LeftTopRightDown,code_part2_Up,"v"},
                 new String[]{code_part2_Up, code_part1_RightTopLeftDown,"w"},
                 new String[]{code_part1_LeftTopRightDown, code_part1_RightTopLeftDown,"x"},
-                new String[]{code_part1_LeftTopRightDown,alt,"x"},
                 new String[]{code_part2_Up, code_part1_TopCurve,"y"},
                 new String[]{code_part1_LeftTopRightDown,code_part2_right,"z"},
                 new String[]{shift, ctrl," "},
                 new String[]{ctrl,alt,"."},
                 new String[]{meta,shift,","},
                 new String[]{meta,alt,"{"},
+
+                new String[]{backspace,alt,clearOutputCommand},
 
                 new String[]{enter,code_part1_LeftRight,runCommand},
                 new String[]{enter,meta,markCommand},
@@ -655,12 +677,13 @@ public class MainActivity extends Activity {
                 new String[]{alt, code_part1_RightTopLeftDown,"/"},
                 new String[]{alt, code_part1_TopDown,"+"},
                 new String[]{alt,code_part1_LeftRight,"-"},
-                new String[]{alt, code_part1_TopCurve,"*"},
+                new String[]{alt,code_part1_LeftTopRightDown,"*"},
+                new String[]{alt, code_part1_TopCurve,";"},
 
 
-                new String[]{meta,code_part2_right,">"},
-                new String[]{meta,code_part2_Up,"="},
-                new String[]{meta,code_part2_left,"<"},
+                new String[]{meta,code_part2_right,"<"},
+                new String[]{meta,code_part2_Up,">"},
+                new String[]{meta,code_part2_left,"="},
                 new String[]{meta,code_part2_Circle,"["},
                 new String[]{meta,code_part2_down,"("},
 

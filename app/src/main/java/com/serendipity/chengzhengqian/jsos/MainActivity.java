@@ -23,6 +23,7 @@ import android.widget.TextView;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.security.Key;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -441,7 +442,7 @@ public class MainActivity extends Activity {
 
         if (s.equals(runCommand)) {
             if(!IsEdit)
-                runCode();
+                runCode(true);
             return 0;
         }
         else if (s.equals(copyCommand)) {
@@ -999,7 +1000,9 @@ public class MainActivity extends Activity {
             else if(keycode==KeyEvent.KEYCODE_F)
                 return cursorRight();
             else if(keycode==KeyEvent.KEYCODE_R)
-                return runCode();
+                return runCode(true);
+            else if(keycode==KeyEvent.KEYCODE_J)
+                return runCode(false);
             else if(keycode==KeyEvent.KEYCODE_M)
                 return setMark();
             else if(keycode==KeyEvent.KEYCODE_P)
@@ -1020,6 +1023,8 @@ public class MainActivity extends Activity {
                 return addChar('\n');
             else if(keycode==KeyEvent.KEYCODE_T)
                 return addString("  ");
+            else if(keycode==KeyEvent.KEYCODE_O)
+                return addString(" ");
 
             else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET){
                 return historyDown();
@@ -1072,12 +1077,18 @@ public class MainActivity extends Activity {
             cursorLeft();
             return true;
         }
+        else if(keycode== KeyEvent.KEYCODE_MINUS){
+            if (event.isShiftPressed())
+                addString("_");
+            else
+                addString("-");
+            return true;
+        }
         else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET) {
             if (event.isShiftPressed())
                 addString("}");
             else
                 addString("]");
-            cursorLeft();
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_APOSTROPHE){
@@ -1171,7 +1182,7 @@ public class MainActivity extends Activity {
         if(a>='A'&&a<='Z'){
             return true;
         }
-        if(a=='.'){
+        if(a=='.'||a=='_'||a=='$'){
             return true;
         }
         return false;
@@ -1259,7 +1270,7 @@ public class MainActivity extends Activity {
      * this runs on the seperate thread,improves teh previous version
      * @return
      */
-    private boolean runCode() {
+    private boolean runCode(boolean useBabel) {
         try {
 
             String codeInput=currentInput.toString();
@@ -1268,6 +1279,7 @@ public class MainActivity extends Activity {
                     synchronized (command) {
                         command.id = codeHistory.size();
                         command.code = codeInput;
+                        command.useBabel=useBabel;
                         command.notify();
                     }
                     codeHistory.add(codeInput);

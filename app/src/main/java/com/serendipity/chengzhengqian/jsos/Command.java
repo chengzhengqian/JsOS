@@ -3,6 +3,7 @@ package com.serendipity.chengzhengqian.jsos;
 public class Command {
     public String code;
     public int state;
+    public boolean useBabel;
     public int id=0;
     public static int stop=0;
     public static int running=1;

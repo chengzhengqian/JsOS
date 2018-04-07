@@ -1,5 +1,7 @@
 package com.serendipity.chengzhengqian.jsos;
 
+import android.support.constraint.solver.Goal;
+
 public class JsThread extends Thread {
     Command c;
     MainActivity app;
@@ -10,6 +12,22 @@ public class JsThread extends Thread {
         this.app=app;
         this.ioLocker=ioLocker;
     }
+    public static String oldCode="__old_code__";
+    public static String newCode="__new_code__";
+    public static String transformFunc="__babel_func__";
+    private void initBabel(){
+        String babeljs=this.app.getRawResource(R.raw.babeljs);
+        JsNative.safeEval(ctx,babeljs);
+        String s=JsNative.safeToString(ctx, -1);
+        GlobalState.printToLog("\nbabel loaded: "+ s+"\n", GlobalState.info);
+        JsNative.pushString(ctx,"function(old){return (Babel.transform(old,{presets:['es2015']}).code);}");
+        JsNative.pushString(ctx,transformFunc);
+        JsNative.pCompile(ctx,JsNative.DUK_COMPILE_FUNCTION);
+        JsNative.putGlobalString(ctx,transformFunc);
+
+    }
+
+
     private void initJsCtx() {
         ctx=JsNative.createHeapDefault();
         JsNative.registerJavaHandle(ctx);
@@ -19,6 +37,7 @@ public class JsThread extends Thread {
         JsNative.registerJsObejctProperties(ctx);
         JsNative.registerFunctionHandle(ctx);
         JsNative.pushObject(ctx,new JsJava(this.app,ioLocker),JsJava.name);
+        initBabel();
     }
     private void delJsCtx()
     {
@@ -35,7 +54,7 @@ public class JsThread extends Thread {
                 try {
                     c.wait();
                     if(c.state==Command.running)
-                        runCode(c.code,c.id);
+                        runCode(c.code,c.id,c.useBabel);
                     else if(c.state==Command.hint){
                         c.hintResult=getCurrentVariableHint(c.parsedFrom);
                         c.notify();
@@ -53,9 +72,26 @@ public class JsThread extends Thread {
         delJsCtx();
 
     }
-
-    private boolean runCode(String codeInput, int id) {
+    /* transform the code the stored in global variables*/
+    private String transformCode(String codeInput){
+        JsNative.pushString(ctx,codeInput);
+        JsNative.putGlobalString(ctx,oldCode);
+        JsNative.safeEval(ctx,String.format("%s(%s)",transformFunc,oldCode));
+        JsNative.putGlobalString(ctx,newCode);
+        JsNative.getGlobalString(ctx,newCode);
+        String result=JsNative.getString(ctx,-1);
+        JsNative.pop(ctx);
+        return result;
+    }
+    private boolean runCode(String codeInput, int id,boolean useBable) {
         try {
+            if(useBable) {
+                codeInput = transformCode(codeInput);
+                if(codeInput.length()>13){
+                    codeInput=codeInput.substring(13);
+                }
+                GlobalState.printToLog(codeInput+"\n<<<\n",GlobalState.normal);
+            }
             JsNative.safeEval(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
             if(s!=null&&id>=0)

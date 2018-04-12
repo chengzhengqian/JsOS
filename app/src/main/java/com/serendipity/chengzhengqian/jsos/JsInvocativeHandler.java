@@ -4,16 +4,16 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
 public class JsInvocativeHandler implements InvocationHandler {
-    String code;
-    JsInvocativeHandler(String funcCode){
-        code=funcCode;
+    String jsObjectName;
+    CommandLock c;
+    JsInvocativeHandler(String funcCode, CommandLock c){
+        jsObjectName=funcCode;
+        this.c=c;
     }
+
     @Override
     public Object invoke(Object o, Method method, Object[] objects) throws Throwable {
-        //notice to handle toString method!
-        GlobalState.printToLog(
-               code,GlobalState.info
-                        );
+        c.callJsObjectInCurrentThread(jsObjectName,method.getName(),objects);
         return null;
     }
 }

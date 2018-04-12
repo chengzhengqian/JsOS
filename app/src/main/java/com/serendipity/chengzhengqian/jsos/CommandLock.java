@@ -17,16 +17,17 @@ public class CommandLock {
      * @param code
      * @param isBabel
      */
-    public void runInCurrentThread(String code,boolean isBabel) {
+    public String runInCurrentThread(String code,boolean isBabel) {
         synchronized (this) {
             this.isAvailableForNewCommand = false;
             int index = JsNative.pushThread(mainCtx);
             long currentCtx = JsNative.getContext(mainCtx, index);
             JsNative.registerJavaHandle(currentCtx); //as js handle will need j env, which is set from this.
-            JsThread.runCode(currentCtx, code, RUNCODE, true);
+            String result=JsThread.runCode(currentCtx, code, RUNCODE, true);
             JsNative.releaseJavaHandle(currentCtx);
             JsNative.pop(mainCtx);
             this.isAvailableForNewCommand = true;
+            return result;
         }
         // clear currentCtx; notice as __java__handle__ essentially contains
         // a jnienv and some frequent used class and method, this make it thread sensitve. As
@@ -34,7 +35,38 @@ public class CommandLock {
         // the heap, currently, the strategy is, any java thread try to execuate a code, register its
         // own callback,if finised, rember to realse the refernece hold by javahandle.
     }
+    public static final String argForm="__arg%d__";
+    public void callJsObjectInCurrentThread(String objectName, String methodName, Object[] args){
+        synchronized (this){
+            this.isAvailableForNewCommand = false;
+            int index = JsNative.pushThread(mainCtx);
+            long currentCtx = JsNative.getContext(mainCtx, index);
+            JsNative.registerJavaHandle(currentCtx); //as js handle will need j env, which is set from this.
+            StringBuilder command=new StringBuilder();
+            command.append(objectName);
+            command.append(".");
+            command.append(methodName);
+            command.append("(");
+            for(int i=0;i<args.length;i++){
+                String argname=String.format(argForm,i);
+                if(i>0){
+                    command.append(",");
+                }
+                JsNative.pushJavaObject(currentCtx,args[i]);
+                JsNative.putGlobalString(currentCtx,argname);
+                command.append(argname);
+            }
+            command.append(")");
 
+            JsThread.runCode(currentCtx,command.toString(),RUNCODE,false);
+
+            JsNative.releaseJavaHandle(currentCtx);
+            JsNative.pop(mainCtx);
+            this.isAvailableForNewCommand = true;
+
+        }
+
+    }
 
     public CommandLock(){
         this.state= RUNCODE;

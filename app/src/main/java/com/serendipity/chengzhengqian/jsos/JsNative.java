@@ -781,9 +781,9 @@ public class JsNative {
 
     /**
      * this provides a overall way to push a java object to stack
-     * int, double, boolean will be keep in primitive form. (Integer, ..) will be unboxed
+     * int, double, boolean will be keep in primitive form. (Integer, ..) boxed form will be unboxed
      * string will be push as c-string
-     * while other things just as wrapped js ojbect
+     * while other things just as wrapped js object (i.e, include proxy)
      *
      * @param context
      * @param obj

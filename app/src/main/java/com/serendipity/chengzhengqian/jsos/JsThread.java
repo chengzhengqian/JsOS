@@ -26,15 +26,16 @@ public class JsThread extends Thread {
     }
 
 
-    private void initJsCtx() {
+    private void initJsCtx(CommandLock c) {
         ctx=JsNative.createHeapDefault();
+        c.mainCtx=ctx;
         //we have the registerJavaHandle in run, as we now support multithread share heap
         JsNative.registerProxyHandleGet(ctx);
         JsNative.registerProxyHandleSet(ctx);
         JsNative.registerJsObjectFinalizer(ctx);
         JsNative.registerJsObejctProperties(ctx);
         JsNative.registerFunctionHandle(ctx);
-        JsNative.pushObject(ctx,new JsJava(this.app, ioLock,ctx),JsJava.name);
+        JsNative.pushObject(ctx,new JsJava(this.app, ioLock,c),JsJava.name);
         initBabel();
     }
     private void delJsCtx()
@@ -44,10 +45,10 @@ public class JsThread extends Thread {
 
     public void run(){
         synchronized (c){
-            initJsCtx();
+            initJsCtx( c);
             boolean isContinue=true;
             GlobalState.printToLog("js thread start!\n",GlobalState.info);
-            c.mainCtx=ctx;
+
             while(isContinue){
                 try {
                     JsNative.registerJavaHandle(ctx);
@@ -97,7 +98,7 @@ public class JsThread extends Thread {
         return babletransformError;
     }
     public static final int bableCodeHeadSize=13;
-    public static boolean runCode(long ctx,String codeInput, int id,boolean useBable) {
+    public static String runCode(long ctx,String codeInput, int id,boolean useBable) {
         try {
             if(useBable) {
                 codeInput = transformCode(ctx,codeInput);
@@ -107,17 +108,17 @@ public class JsThread extends Thread {
                 if(codeInput.startsWith("\n")){
                     codeInput=codeInput.substring(1);
                 }
-                GlobalState.printToLog(codeInput+"\n",GlobalState.babelCode);
+                if(JsNative.ISDEBUG)
+                    GlobalState.printToLog(codeInput+"\n",GlobalState.babelCode);
             }
             JsNative.safeEvalString(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
-            if(s!=null&&id>=0)
-                GlobalState.printToLog("\nOut:["+id+"]: "+ s+"\n", GlobalState.info);
+            return s;
         }
         catch (Exception e){
             GlobalState.printToLog(e.toString(), GlobalState.info);
         }
-        return true;
+        return "";
     }
 
     private String getCurrentVariableHint(String[] parsedForm){

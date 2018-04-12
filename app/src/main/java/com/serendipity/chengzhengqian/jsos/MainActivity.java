@@ -587,7 +587,11 @@ public class MainActivity extends Activity {
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
         jsLog.setTextSize(20.f);
-        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\")");
+        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
+                "\nc=java.load('CallBack');" +
+                "\np=java.proxy(c,'a');" +
+                "\njava.app.setCallBack(p);" +
+                "\na={};a.run=(x)=>{java.print(x);}");
         updateUI();
     }
     class KeyPosition {
@@ -1554,8 +1558,12 @@ public class MainActivity extends Activity {
     }
     private boolean runCodeInUIThread(){
         if(commandLock.isAvailableForNewCommand){
-            commandLock.runInCurrentThread(currentInput.toString(),
+            String result=commandLock.runInCurrentThread(currentInput.toString(),
                         true);
+            codeHistory.add(currentInput.toString());
+            currentHistory = codeHistory.size() - 1;
+            emptyInput();
+            addLogWithColor(result,GlobalState.infoDebug);
         }
         else{
             addLogWithColor("\njs thread is not ready to run in current thread!\n", GlobalState.error);

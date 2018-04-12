@@ -6,12 +6,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.opengl.Visibility;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.Guideline;
-import android.telecom.Call;
 import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.BackgroundColorSpan;
@@ -20,9 +18,7 @@ import android.view.*;
 import android.widget.Button;
 import android.widget.TextView;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -462,12 +458,12 @@ public class MainActivity extends Activity {
 
         if (s.equals(runCommand)) {
             if(!IsEdit)
-                runCode(true);
+                runCode(true,true);
             return 0;
         }
         else if(s.equals(bareRunCommand)){
             if(!IsEdit)
-                runCode(false);
+                runCode(false,true);
             return 0;
         }
         else if(s.equals(threadInfoCommand)){
@@ -587,6 +583,8 @@ public class MainActivity extends Activity {
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
         jsLog.setTextSize(20.f);
+        setMode(EDITMODE);
+        setRootDir();
         currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
                 "\nc=java.load('CallBack');" +
                 "\np=java.proxy(c,'a');" +
@@ -978,18 +976,25 @@ public class MainActivity extends Activity {
     }
 
 
-    String modelLine="%d %s %d @%d";
+    String modeLine ="%s %d %s %d @%d";
+    String cmdModeLine ="%s";
     private boolean isTooLarge(String s){
         float tw=jsLog.getPaint().measureText(s);
         return (tw>=jsLog.getMeasuredWidth()-80);
     }
+
     private String wrapToFitLine(String target){
         StringBuilder s=new StringBuilder();
         s.append(target);
+        String lineChar="";
+        if(currentMode==EDITMODE)
+            lineChar="-";
+        else if(currentMode==CMDMODE)
+            lineChar="=";
         boolean istoolarge=false;
         while(!istoolarge){
-            s.append("-");
-            s.insert(0,"-");
+            s.append(lineChar);
+            s.insert(0,lineChar);
             istoolarge=isTooLarge(s.toString());
         };
         return s.toString();
@@ -1007,7 +1012,12 @@ public class MainActivity extends Activity {
         if(isCtrOn)state+=ctrlIcon;
         if(isAltOn)state+=altIcon;
         if(isMetaOn)state+=metaIcon;
-        String mode=(String.format(modelLine,currentCaret,state, currentHistory,currentThread));
+        String mode="";
+        if(currentMode==EDITMODE)
+            mode=(String.format(modeLine,currentFileName,
+                    currentCaret,state, currentHistory,currentThread));
+        if(currentMode==CMDMODE)
+            mode=String.format(cmdModeLine,currentDir.getName());
         sb.append("\n"+wrapToFitLine(mode)+"\n");
         int previousSize=sb.length();
         sb.append(currentInput);
@@ -1051,11 +1061,6 @@ public class MainActivity extends Activity {
         tv.setMaxLines(maxLineNumbers);
         tv.setMovementMethod(new ScrollingMovementMethod());
     }
-    /* to mimic a edit text, one should buffer the content and then put it to text
-    * current implementation has flaw when the whole buffer is large and frequently take substring
-    * */
-    public SpannableStringBuilder currentInput=new SpannableStringBuilder();
-    public int currentCaret=0;
 
     /**
      * v1: 6s for 20000
@@ -1159,9 +1164,9 @@ public class MainActivity extends Activity {
         else if(keycode==KeyEvent.KEYCODE_F)
             return cursorRight();
         else if(keycode==KeyEvent.KEYCODE_R)
-            return runCode(true);
+            return runCode(true,true);
         else if(keycode==KeyEvent.KEYCODE_J)
-            return runCode(false);
+            return runCode(false,true);
         else if(keycode==KeyEvent.KEYCODE_M)
             return setMark();
         else if(keycode==KeyEvent.KEYCODE_P)
@@ -1236,6 +1241,13 @@ public class MainActivity extends Activity {
             callback.run(this);
             return true;
         }
+        else if(keycode==KeyEvent.KEYCODE_X){
+            return toggleMode();
+        }
+        else if(keycode==KeyEvent.KEYCODE_R)
+            return runCode(true,false);
+        else if(keycode==KeyEvent.KEYCODE_J)
+            return runCode(false,false);
         return true;
     }
 
@@ -1293,6 +1305,13 @@ public class MainActivity extends Activity {
                 addString("_");
             else
                 addString("-");
+            return true;
+        }
+        else if(keycode== KeyEvent.KEYCODE_POUND){
+            if (event.isShiftPressed())
+                addString("|");
+            else
+                addString("\\");
             return true;
         }
 
@@ -1369,10 +1388,24 @@ public class MainActivity extends Activity {
             else
                 addChar(',');
         }
+        else if(keycode==KeyEvent.KEYCODE_SLASH){
+            if(event.isShiftPressed()){
+                addChar('?');
+            }
+            else
+                addChar('/');
+        }
+        else if(keycode==KeyEvent.KEYCODE_GRAVE){
+            if(event.isShiftPressed()){
+                addChar('~');
+            }
+            else
+                addChar('`');
+        }
         else if(keycode==KeyEvent.KEYCODE_TAB){
             return autocomplete();
         }
-        else if(keycode!=KeyEvent.KEYCODE_SHIFT_LEFT||keycode!=KeyEvent.KEYCODE_SHIFT_RIGHT)
+        else if(keycode!=KeyEvent.KEYCODE_SHIFT_LEFT&&keycode!=KeyEvent.KEYCODE_SHIFT_RIGHT)
             addLogWithColor("["+keycode+"]",GlobalState.infoDebug);
 
         return true;
@@ -1479,39 +1512,47 @@ public class MainActivity extends Activity {
         String[] parsedForm=parseVariable(variable);
         String hint=parsedForm[1];
         result.add(hint);
-        if(commandLock.isAvailableForNewCommand){
-            synchronized (commandLock){
-                commandLock.setHint(parsedForm);
-                commandLock.notify();
-                try {
-                    commandLock.wait();
-                    commandLock.state= CommandLock.RUNCODE;
-                    String[] candidates= commandLock.hintResult.split(",");
-                    for(String s:candidates){
-                        if(s.startsWith(hint)){
-                            result.add(s);
-                        }
-                    }
-                    if(parsedForm[0].equals("")){
-                        for(String s:javascriptkeywords){
-                            if(s.startsWith(hint)){
+        if(currentMode==EDITMODE) {
+            if (commandLock.isAvailableForNewCommand) {
+                synchronized (commandLock) {
+                    commandLock.setHint(parsedForm);
+                    commandLock.notify();
+                    try {
+                        commandLock.wait();
+                        commandLock.state = CommandLock.RUNCODE;
+                        String[] candidates = commandLock.hintResult.split(",");
+                        for (String s : candidates) {
+                            if (s.startsWith(hint)) {
                                 result.add(s);
                             }
                         }
+                        if (parsedForm[0].equals("")) {
+                            for (String s : javascriptkeywords) {
+                                if (s.startsWith(hint)) {
+                                    result.add(s);
+                                }
+                            }
+                        }
+                        return result;
+                    } catch (InterruptedException e) {
+                        addLogWithColor(e.toString(), GlobalState.error);
                     }
-                    return result;
-                } catch (InterruptedException e) {
-                    addLogWithColor(e.toString(),GlobalState.error);
                 }
+            } else {
+                addLogWithColor("\njs thread is not ready for new command!\n", GlobalState.error);
             }
         }
-        else{
-            addLogWithColor("\njs thread is not ready for new command!\n", GlobalState.error);
+        else if(currentMode==CMDMODE){
+            for(File f:currentDir.listFiles()){
+                if(f.getName().startsWith(hint)){
+                    result.add(f.getName());
+                }
+            }
         }
         return result;
     }
     private void emptyInput(){
-        currentInput=new SpannableStringBuilder();
+        currentInput.clear();
         currentCaret=0;
         updateUI();
     }
@@ -1522,20 +1563,218 @@ public class MainActivity extends Activity {
      * this runs on the seperate thread,improves teh previous version
      * @return
      */
-    private boolean runCode(boolean useBabel) {
+    private boolean runCode(boolean useBabel,boolean isClean) {
+        if(currentMode==EDITMODE){
+            runJsCode(useBabel,isClean);
+        }
+        else if(currentMode==CMDMODE){
+            runCmd(isClean);
+        }
+        return true;
+
+    }
+    private boolean pushToHistory(String codeInput){
+        codeHistory.add(codeInput);
+        currentHistory = codeHistory.size() - 1;
+        emptyInput();
+        return true;
+    }
+    private boolean runCmd(Boolean isClean){
+        String codeInput=currentInput.toString();
+        String[] cmd=codeInput.split("\\s+");
+
+        if(cmd.length>0) {
+            String cmdName=cmd[0];
+            if(cmdName.equals("ls")){
+                call_ls(cmd);
+            }
+            else if(cmdName.equals("cd")){
+                call_cd(cmd);
+            }
+            else if(cmdName.equals("mkdir")){
+                call_mkdir(cmd);
+            }
+            else if(cmdName.equals("save")){
+                call_save(cmd);
+            }
+            else if(cmdName.equals("cat")){
+                call_cat(cmd);
+            }
+            else if(cmdName.equals("open")){
+                call_open(cmd);
+                isClean=false;
+            }
+            else{
+                for(File f: currentDir.listFiles()){
+                    if(f.isFile()){
+                        if(f.getName().equals(cmdName)){
+                            StringBuilder arg=new StringBuilder();
+                            arg.append("arg=[");
+                            for(int i=0;i<cmd.length;i++){
+                                if(i>0){
+                                    arg.append(", ");
+                                }
+                                arg.append("\""+cmd[i]+"\"");
+                            }
+                            arg.append("]");
+                            runCodeInUIThread(arg.toString());
+                            runCodeInUIThread(readFile(f));
+                        }
+                    }
+                }
+            }
+            if(isClean)
+                pushToHistory(codeInput);
+        }
+        return true;
+    }
+    File currentDir;
+    String root;
+    String currentFileName;
+    private void setRootDir(){
+        currentDir=this.getBaseContext().getFilesDir();
+        root=currentDir.getAbsolutePath();
+        currentFileName="Untitled";
+    }
+    private void call_ls(String[] cmd){
+
+        addLogWithColor("\n",GlobalState.info);
+
+        for(File f : currentDir.listFiles()){
+            if(f.isDirectory()){
+                addLogWithColor(f.getName()+"/"+"  ",GlobalState.info);
+            }
+            else if(f.isFile()){
+                addLogWithColor(f.getName()+"  ",GlobalState.normal);
+            }
+        }
+
+    }
+    private void call_save(String[] cmd){
+        File f;
+        if(cmd.length==1){
+            f=new File(currentDir.getAbsolutePath()+"/"+currentFileName);
+        }
+        else {
+            f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
+            currentFileName=cmd[1];
+        }
+        try {
+            BufferedWriter bw=new BufferedWriter(new FileWriter(f));
+            bw.write(currentCodeInput.toString());
+            bw.close();
+        } catch (IOException e) {
+            addLogWithColor("\n"+e.toString(),GlobalState.error);
+        }
+    }
+
+    private String readFile(File f){
+        StringBuilder sb=new StringBuilder();
+        String s;
+        try{
+            BufferedReader br = new BufferedReader(new FileReader(f));
+            while((s=br.readLine())!=null){
+                sb.append(s);
+                sb.append("\n");
+            }
+            br.close();
+        }catch (Exception e){
+            addLogWithColor(e.toString(),GlobalState.error);
+        }
+
+        return sb.toString();
+    }
+    private void call_cat(String[] cmd){
+        File f;
+        if(cmd.length==1){
+            f=new File(currentDir.getAbsolutePath()+"/"+currentFileName);
+        }
+        else {
+            f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
+        }
+
+        if(f.isFile()) {
+            addLogWithColor("\n"+readFile(f),GlobalState.infoDebug);
+
+        }
+
+    }
+    private void call_open(String[] cmd){
+        File f;
+        if(cmd.length==1){
+            f=new File(currentDir.getAbsolutePath()+"/"+currentFileName);
+        }
+        else {
+            f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
+        }
+
+        if(f.isFile()) {
+            pushToHistory(currentCommandInput.toString());
+            setMode(EDITMODE);
+            pushToHistory(currentCodeInput.toString());
+            currentFileName=f.getName();
+            currentCodeInput.append(readFile(f));
+            updateUI();
+        }
+
+    }
+    private void call_cd(String[] cmd){
+        if(cmd.length>1){
+            if(cmd[1].equals("..")){
+                if(currentDir.getAbsolutePath().equals(root)){
+                    addLogWithColor("\ncurrent directory is root!\n",GlobalState.error);
+                    return;
+                }
+                currentDir=currentDir.getParentFile();
+                return;
+            }
+            else if(cmd[1].equals("~")){
+                currentDir=new File(root);
+                return;
+            }
+            File f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
+            if(f.exists()){
+                currentDir=f;
+            }
+            else{
+                addLogWithColor("\n"+cmd[1]+" does not exist!", GlobalState.error);
+            }
+            updateUI();
+        }
+        else{
+            addLogWithColor("\ncd has no target!", GlobalState.error);
+        }
+
+    }
+    private void call_mkdir(String[] cmd){
+        if(cmd.length>1){
+            File f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
+            if(f.exists()){
+                addLogWithColor("\n"+cmd[1]+" exist!", GlobalState.error);
+            }
+            else{
+                f.mkdirs();
+            }
+        }
+        else{
+            addLogWithColor("\nmkdir has no target!", GlobalState.error);
+        }
+
+    }
+    private boolean runJsCode(boolean useBabel,boolean isClean){
         try {
 
             String codeInput=currentInput.toString();
             if(commandLock.isAvailableForNewCommand) {
                 synchronized (commandLock) {
+                    CommandLock.isShowOutput=true;
                     commandLock.id = codeHistory.size();
                     commandLock.code = codeInput;
                     commandLock.useBabel = useBabel;
                     commandLock.notify();
                 }
-                codeHistory.add(codeInput);
-                currentHistory = codeHistory.size() - 1;
-                emptyInput();
+                if(isClean)
+                    pushToHistory(codeInput);
             }
             else{
                 addLogWithColor("\njs thread is not ready !\n", GlobalState.error);
@@ -1560,10 +1799,18 @@ public class MainActivity extends Activity {
         if(commandLock.isAvailableForNewCommand){
             String result=commandLock.runInCurrentThread(currentInput.toString(),
                         true);
-            codeHistory.add(currentInput.toString());
-            currentHistory = codeHistory.size() - 1;
-            emptyInput();
-            addLogWithColor(result,GlobalState.infoDebug);
+            pushToHistory(currentInput.toString());
+            addLogWithColor("\n"+result,GlobalState.info);
+        }
+        else{
+            addLogWithColor("\njs thread is not ready to run in current thread!\n", GlobalState.error);
+        }
+        return true;
+    }
+    private boolean runCodeInUIThread(String code){
+        if(commandLock.isAvailableForNewCommand){
+            String result=commandLock.runInCurrentThread(code,
+                    true);
         }
         else{
             addLogWithColor("\njs thread is not ready to run in current thread!\n", GlobalState.error);
@@ -1782,6 +2029,49 @@ public class MainActivity extends Activity {
             ioLock.content.append(content);
             ioLock.notify();
         }
+        return true;
+    }
+    /* to mimic a edit text, one should buffer the content and then put it to text
+     * current implementation has flaw when the whole buffer is large and frequently take substring
+     * */
+    public SpannableStringBuilder currentInput;
+    public int currentCaret=0;
+    /* file editing mode or command mode*/
+    SpannableStringBuilder currentCommandInput=new SpannableStringBuilder();
+    int cmdCaretPosition =0;
+    SpannableStringBuilder currentCodeInput=new SpannableStringBuilder();
+    int codeCaretPosition =0;
+    int currentMode;
+    static int EDITMODE=0;
+    static int CMDMODE=1;
+    private boolean setMode(int mode){
+        saveMode(currentMode);
+        if(mode==EDITMODE){
+            currentInput=currentCodeInput;
+            currentCaret=codeCaretPosition;
+        }
+        else if(mode==CMDMODE){
+            currentInput=currentCommandInput;
+            currentCaret=cmdCaretPosition;
+        }
+        currentMode=mode;
+        updateUI();
+        return true;
+    }
+    private boolean toggleMode(){
+        if(currentMode==EDITMODE){
+            return setMode(CMDMODE);
+        }
+        else if(currentMode==CMDMODE){
+            return setMode(EDITMODE);
+        }
+        return true;
+    }
+    private boolean saveMode(int mode){
+        if(mode==EDITMODE)
+            codeCaretPosition=currentCaret;
+        else if(mode==CMDMODE)
+            cmdCaretPosition=currentCaret;
         return true;
     }
 }

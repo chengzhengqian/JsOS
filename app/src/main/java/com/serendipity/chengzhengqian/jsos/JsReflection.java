@@ -185,11 +185,11 @@ public class JsReflection {
     public static String showMethods(Object b,String hint) {
         Class<?> c=b.getClass();
         StringBuilder s=new StringBuilder();
-        for(Field f:c.getDeclaredFields()){
+        for(Field f:c.getFields()){
             if(hint.equals("")||f.getName().startsWith(hint))
                 s.append(","+f.getName());
         }
-        for(Method f:c.getDeclaredMethods()){
+        for(Method f:c.getMethods()){
             if(hint.equals("")||f.getName().startsWith(hint))
                 s.append(","+f.getName());
         }

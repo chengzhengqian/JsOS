@@ -84,6 +84,7 @@ public class JsServer extends NanoHTTPD {
                         try {
                             GlobalState.printToLog(">>>\n"+content+"\n<<<\n",GlobalState.info);
                             synchronized (GlobalState.commandLock){
+                                CommandLock.isShowOutput=false;
                                 if(GlobalState.commandLock.state== CommandLock.RUNCODE){
                                     GlobalState.commandLock.code=content;
                                     GlobalState.commandLock.id=-1;

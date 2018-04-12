@@ -1,5 +1,7 @@
 package com.serendipity.chengzhengqian.jsos;
 
+import java.util.zip.CheckedOutputStream;
+
 public class JsThread extends Thread {
     CommandLock c;
     MainActivity app;
@@ -50,8 +52,8 @@ public class JsThread extends Thread {
             GlobalState.printToLog("js thread start!\n",GlobalState.info);
 
             while(isContinue){
+                JsNative.registerJavaHandle(ctx);
                 try {
-                    JsNative.registerJavaHandle(ctx);
                     c.isAvailableForNewCommand=true;
                     c.wait();
                     c.isAvailableForNewCommand=false;
@@ -113,6 +115,10 @@ public class JsThread extends Thread {
             }
             JsNative.safeEvalString(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
+            if(CommandLock.isShowOutput)
+                GlobalState.printToLog(String.format(
+                        "\nOut[%d]: %s\n",id,s
+                ),GlobalState.info);
             return s;
         }
         catch (Exception e){

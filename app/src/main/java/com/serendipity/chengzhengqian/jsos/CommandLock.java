@@ -5,6 +5,7 @@ public class CommandLock {
     /*indicates what's the main thread shoudl do after been wake up*/
     public int state;
     public boolean useBabel;
+    public static boolean isShowOutput=true;
     public int id=0;
     public static int STOP =0;
     public static int RUNCODE =1;
@@ -19,6 +20,7 @@ public class CommandLock {
      */
     public String runInCurrentThread(String code,boolean isBabel) {
         synchronized (this) {
+            this.isShowOutput=false;
             this.isAvailableForNewCommand = false;
             int index = JsNative.pushThread(mainCtx);
             long currentCtx = JsNative.getContext(mainCtx, index);

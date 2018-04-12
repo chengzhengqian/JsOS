@@ -1,14 +1,14 @@
 package com.serendipity.chengzhengqian.jsos;
 
 public class JsThread extends Thread {
-    Command c;
+    CommandLock c;
     MainActivity app;
     long ctx;
-    IOLocker ioLocker;
-    JsThread(Command c, MainActivity app,IOLocker ioLocker){
+    IOLock ioLock;
+    JsThread(CommandLock c, MainActivity app, IOLock ioLock){
         this.c=c;
         this.app=app;
-        this.ioLocker=ioLocker;
+        this.ioLock = ioLock;
     }
     public static String oldCode="__old_code__";
     public static String newCode="__new_code__";
@@ -17,62 +17,69 @@ public class JsThread extends Thread {
         String babeljs=this.app.getRawResource(R.raw.babeljs);
         JsNative.safeEvalString(ctx,babeljs);
         String s=JsNative.safeToString(ctx, -1);
-        GlobalState.printToLog("\nbabel loaded: "+ s+"\n", GlobalState.info);
         JsNative.pushString(ctx,"function(old){return (Babel.transform(old,{presets:['es2015']}).code);}");
         JsNative.pushString(ctx,transformFunc);
         JsNative.pCompile(ctx,JsNative.DUK_COMPILE_FUNCTION);
         JsNative.putGlobalString(ctx,transformFunc);
+        GlobalState.printToLog("\nbabel loaded!\n", GlobalState.info);
 
     }
 
 
     private void initJsCtx() {
         ctx=JsNative.createHeapDefault();
-        JsNative.registerJavaHandle(ctx);
+        //we have the registerJavaHandle in run, as we now support multithread share heap
         JsNative.registerProxyHandleGet(ctx);
         JsNative.registerProxyHandleSet(ctx);
         JsNative.registerJsObjectFinalizer(ctx);
         JsNative.registerJsObejctProperties(ctx);
         JsNative.registerFunctionHandle(ctx);
-        JsNative.pushObject(ctx,new JsJava(this.app,ioLocker),JsJava.name);
+        JsNative.pushObject(ctx,new JsJava(this.app, ioLock,ctx),JsJava.name);
         initBabel();
     }
     private void delJsCtx()
     {
-        JsNative.releaseJavaHandle(ctx);
         JsNative.destroyHeap(ctx);
     }
 
     public void run(){
-        initJsCtx();
-        boolean isContinue=true;
-        GlobalState.printToLog("js thread start!\n",GlobalState.info);
-        while(isContinue){
-            synchronized (c){
+        synchronized (c){
+            initJsCtx();
+            boolean isContinue=true;
+            GlobalState.printToLog("js thread start!\n",GlobalState.info);
+            c.mainCtx=ctx;
+            while(isContinue){
                 try {
+                    JsNative.registerJavaHandle(ctx);
+                    c.isAvailableForNewCommand=true;
                     c.wait();
-                    if(c.state==Command.running)
-                        runCode(c.code,c.id,c.useBabel);
-                    else if(c.state==Command.hint){
+                    c.isAvailableForNewCommand=false;
+                    if(c.state== CommandLock.RUNCODE)
+                        runCode(ctx,c.code,c.id,c.useBabel);
+                    else if(c.state== CommandLock.GETHINT){
                         c.hintResult=getCurrentVariableHint(c.parsedFrom);
                         c.notify();
                     }
-                    else if(c.state==Command.stop){
+                    else if(c.state== CommandLock.STOP){
                         isContinue=false;
                     }
                 } catch (InterruptedException e) {
-                    GlobalState.printToLog(e.toString(),GlobalState.error);
+                    //GlobalState.printToLog(e.toString(),GlobalState.error);
+                    JsNative.releaseJavaHandle(ctx);//as we allow other thread inject in
+                    delJsCtx();
+                    c.state= CommandLock.STOP;
+                    GlobalState.printToLog("thread exit by interrupt!\n",GlobalState.info);
+                    return;
                 }
-
+                JsNative.releaseJavaHandle(ctx);//as we allow other thread inject in
             }
         }
-        GlobalState.printToLog("js thread is stopped", GlobalState.info);
         delJsCtx();
-
+        GlobalState.printToLog("js thread is stopped", GlobalState.info);
     }
-    public static String babletransformError="'bable error'";
+    public static String babletransformError="'bable_err'";
     /* transform the code the stored in global variables*/
-    private String transformCode(String codeInput){
+    public static String transformCode(long ctx,String codeInput){
         JsNative.pushString(ctx,codeInput);
         JsNative.putGlobalString(ctx,oldCode);
         int sucess;
@@ -89,12 +96,16 @@ public class JsThread extends Thread {
         }
         return babletransformError;
     }
-    private boolean runCode(String codeInput, int id,boolean useBable) {
+    public static final int bableCodeHeadSize=13;
+    public static boolean runCode(long ctx,String codeInput, int id,boolean useBable) {
         try {
             if(useBable) {
-                codeInput = transformCode(codeInput);
-                if(codeInput.length()>13){
-                    codeInput=codeInput.substring(14);
+                codeInput = transformCode(ctx,codeInput);
+                if(codeInput.length()>=bableCodeHeadSize){
+                    codeInput=codeInput.substring(bableCodeHeadSize);
+                }
+                if(codeInput.startsWith("\n")){
+                    codeInput=codeInput.substring(1);
                 }
                 GlobalState.printToLog(codeInput+"\n",GlobalState.babelCode);
             }

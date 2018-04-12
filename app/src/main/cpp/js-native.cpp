@@ -105,11 +105,25 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_safeToString(JNIEnv* env, jobj
   return jstr;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_gc(JNIEnv* env, jobject /* this */, long ctx_, int flags) {
+  duk_context * ctx=(duk_context*)ctx_;
+  duk_gc(ctx, flags);
+}
+
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_serendipity_chengzhengqian_jsos_JsNative_getBoolean(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
   duk_context * ctx=(duk_context*)ctx_;
   return duk_get_boolean(ctx, idx);
 }
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_getContext(JNIEnv* env, jobject /* this */, long ctx_, int idx) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return (long) duk_get_context(ctx,idx);
+}
+
 
 
 
@@ -200,6 +214,14 @@ Java_com_serendipity_chengzhengqian_jsos_JsNative_pushSymbol(JNIEnv* env, jobjec
   /* notice the system will store cstr in heap, (before checking is there same string)*/
   releaseString(env, jstr, cstr);
 }
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_serendipity_chengzhengqian_jsos_JsNative_pushThread(JNIEnv* env, jobject /* this */, long ctx_) {
+  duk_context * ctx=(duk_context*)ctx_;
+  return duk_push_thread(ctx);
+}
+
+
 
 
 extern "C" JNIEXPORT jint JNICALL

@@ -1,8 +1,10 @@
 package com.serendipity.chengzhengqian.jsos;
 
+import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ServiceConfigurationError;
 
 /**
  * a instance of it will push to javascript as a global variable java
@@ -14,11 +16,12 @@ public class JsJava {
 
 
     public static String name="java";
-    private final IOLocker ioLocker;
+    private final IOLock ioLock;
+    private final long ctx;
     public MainActivity app;
     public static final String version="1.0.0";
-    public JsJava(MainActivity m, IOLocker s){
-        this.app=m;this.ioLocker=s;
+    public JsJava(MainActivity m, IOLock s, long ctx){
+        this.app=m;this.ioLock =s; this.ctx=ctx;
     }
     public static void print(Object s){
         GlobalState.printToLog(s.toString(),GlobalState.normal);
@@ -48,18 +51,21 @@ public class JsJava {
         }
 
     }
+    public void gc(){
+        JsNative.gc(ctx,0);
+    }
     public static boolean toggleDebug(){
         JsNative.ISDEBUG=!JsNative.ISDEBUG;
         return JsNative.ISDEBUG;
     }
     public String read(){
-        synchronized (ioLocker){
-            if(!ioLocker.isBlocked) {
+        synchronized (ioLock){
+            if(!ioLock.isBlocked) {
                 try {
-                    ioLocker.isBlocked=true;
-                    ioLocker.wait();
-                    ioLocker.isBlocked=false;
-                    return ioLocker.content.toString();
+                    ioLock.isBlocked=true;
+                    ioLock.wait();
+                    ioLock.isBlocked=false;
+                    return ioLock.content.toString();
                 } catch (InterruptedException e) {
                     GlobalState.printToLog(e.toString(), GlobalState.error);
                 }
@@ -68,5 +74,11 @@ public class JsJava {
         }
 
     }
-
+    public Object proxy(Class<?> c, String code){
+        return Proxy.newProxyInstance(
+                c.getClassLoader(),
+                new Class[]{c},
+                new JsInvocativeHandler(code)
+        );
+    }
 }

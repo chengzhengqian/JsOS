@@ -4,26 +4,25 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
+import android.opengl.Visibility;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.Guideline;
+import android.telecom.Call;
 import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewGroup;
+import android.view.*;
 import android.widget.Button;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.security.Key;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,13 +36,18 @@ public class MainActivity extends Activity {
     }
     ConstraintLayout mainCL;
     private String runCommand="##\uD83D\uDE80";
+    private String threadInfoCommand ="##\uD83C\uDFAE";
+    private String newCommand="##✈";
     private String autoCompleteCommand="##�";
     private String clearOutputCommand="##\uD83D\uDDD1️";
     private String markCommand="##\uD83D\uDD16";
     private String copyCommand="##⎘";
     private String cutCommand="##✂";
     private String pasteCommand="##⎀";
-    private boolean markon =false;
+    private String killThreadCommand="##⛔";
+    //without babel syntax
+    private String bareRunCommand="##\uD83D\uDC0E";
+    private boolean isMarkOn =false;
 
     /*
     orientation 0; vertical , others: horizontal
@@ -213,18 +217,32 @@ public class MainActivity extends Activity {
     public int currentInsertNumber=0;
     public HashMap<String, String> correction=new HashMap<>();
     public void touchMove(String code, MotionEvent event){
-//            GlobalState.printToLog("enter "+code+":"
-//                    +event.getX()+","+event.getY()+"\n",GlobalState.info);
         if(keyPressed.keySet().size()==1){
             if(keyPressed.containsKey(enter)){
                 PressedPoint p=keyPressed.get(enter);
                 if(p.step(event.getX()-p.x,1)>0){
-                    cursorRight();
-                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                    if(isShiftOn){
+                        if(p.step(event.getX()-p.x,3)>0) {
+                            nextThread();
+                            keyPressed.put(enter, new PressedPoint(event.getX(), event.getY()));
+                        }
+                    }
+                    else {
+                        cursorRight();
+                        keyPressed.put(enter, new PressedPoint(event.getX(), event.getY()));
+                    }
                 }
                 if(p.step(event.getX()-p.x,1)<0){
-                    cursorLeft();
-                    keyPressed.put(enter,new PressedPoint(event.getX(),event.getY()));
+                    if(isShiftOn){
+                        if(p.step(event.getX()-p.x,2)<0) {
+                            previousThread();
+                            keyPressed.put(enter, new PressedPoint(event.getX(), event.getY()));
+                        }
+                    }
+                    else {
+                        cursorLeft();
+                        keyPressed.put(enter, new PressedPoint(event.getX(), event.getY()));
+                    }
                 }
                 if(p.step(event.getY()-p.y,2)>0){
                     if(isShiftOn){historyDown();}
@@ -359,10 +377,10 @@ public class MainActivity extends Activity {
         if(event.getAction()==MotionEvent.ACTION_MOVE){
             touchMove(code,event);
         }
-        if(event.getAction()==MotionEvent.ACTION_DOWN) {
+        else if(event.getAction()==MotionEvent.ACTION_DOWN) {
             touchDown(code,event);
         }
-        if(event.getAction()==MotionEvent.ACTION_UP){
+        else if(event.getAction()==MotionEvent.ACTION_UP){
             touchUp(code,event);
         }
 
@@ -428,6 +446,8 @@ public class MainActivity extends Activity {
             return "=>";
         else if(s.equals("/"))
             return "?";
+        else if(s.equals("`"))
+            return "?";
         else
             return s.toUpperCase();
     }
@@ -443,6 +463,26 @@ public class MainActivity extends Activity {
         if (s.equals(runCommand)) {
             if(!IsEdit)
                 runCode(true);
+            return 0;
+        }
+        else if(s.equals(bareRunCommand)){
+            if(!IsEdit)
+                runCode(false);
+            return 0;
+        }
+        else if(s.equals(threadInfoCommand)){
+            if(!IsEdit)
+                GlobalState.showThreadInfo();
+            return 0;
+        }
+        else if(s.equals(killThreadCommand)) {
+            if (!IsEdit)
+                killCurrentThread();
+            return 0;
+        }
+        else if(s.equals(newCommand)) {
+            if (!IsEdit)
+                startNewThread();
             return 0;
         }
         else if (s.equals(copyCommand)) {
@@ -481,6 +521,7 @@ public class MainActivity extends Activity {
 
     public boolean clearOutput(){
         output.clear();
+        outputIndex=0;
         updateUI();
         return true;
     }
@@ -506,7 +547,7 @@ public class MainActivity extends Activity {
          * @return
          */
         private int step(float x,int type){
-            return (int) (x/15)/type;
+            return (int) (x/25)/type;
         }
         String isUpdated(float new_x, float new_y, String code){
             if(Math.abs(new_x-x)+Math.abs(new_y-y)>MoveCorrectionThred){
@@ -546,7 +587,7 @@ public class MainActivity extends Activity {
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
         jsLog.setTextSize(20.f);
-        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+alt+"to run!\")");
+        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\")");
         updateUI();
     }
     class KeyPosition {
@@ -584,10 +625,10 @@ public class MainActivity extends Activity {
     private String code_part1_LeftRight ="━";
     private String code_part2_Circle="○";
     private String code_part2_Up="◡";
-    private String code_part2_down="◠";
-    private String code_part2_left="◑";
+    private String code_part2_Down ="◠";
+    private String code_part2_Left ="◑";
 
-    private String code_part2_right="∠";
+    private String code_part2_Right ="∠";
     private void initKeys(){
         positions.clear();codes.clear();
         addKey(code_part1_LeftTopRightDown,0,0,0);
@@ -598,13 +639,13 @@ public class MainActivity extends Activity {
         addKey(code_part1_LeftRight,1,1,0);
         addKey(ctrl,1,2,0);
 
-        addKey(code_part2_right,0,0,1);
-        addKey(code_part2_left,0,1,1);
+        addKey(code_part2_Right,0,0,1);
+        addKey(code_part2_Left,0,1,1);
         addKey(shift,0,2,1);
 
         addKey(code_part2_Up,1,0,1);
         addKey(code_part2_Circle,1,1,1);
-        addKey(code_part2_down,1,2,1);
+        addKey(code_part2_Down,1,2,1);
 
         addKey(backspace,1,0,2);
         addKey(enter,2,0,2);
@@ -620,32 +661,32 @@ public class MainActivity extends Activity {
     private void initShapeInputMap(){
         shapeInputMap.clear();
         String[][] keyMapWithoutSpecialKey=new String[][]{
-                new String[]{code_part2_left, code_part1_LeftTopRightDown,"a"},
+                new String[]{code_part2_Left, code_part1_LeftTopRightDown,"a"},
                 new String[]{code_part1_LeftTopRightDown,code_part2_Circle,"b"},
-                new String[]{code_part2_left, code_part1_TopCurve,"c"},
+                new String[]{code_part2_Left, code_part1_TopCurve,"c"},
                 new String[]{code_part2_Circle, code_part1_RightTopLeftDown,"d"},
-                new String[]{code_part2_left,code_part1_LeftRight,"e"},
-                new String[]{code_part1_RightTopLeftDown,code_part2_right,"f"},
+                new String[]{code_part2_Left,code_part1_LeftRight,"e"},
+                new String[]{code_part1_RightTopLeftDown, code_part2_Right,"f"},
                 new String[]{code_part2_Circle, code_part1_TopCurve,"g"},
-                new String[]{code_part1_TopDown,code_part2_down,"h"},
-                new String[]{code_part1_TopCurve,code_part2_down,"i"},
-                new String[]{code_part1_TopCurve,code_part2_right,"j"},
-                new String[]{code_part1_TopDown,code_part2_left,"k"},
+                new String[]{code_part1_TopDown, code_part2_Down,"h"},
+                new String[]{code_part1_TopCurve, code_part2_Down,"i"},
+                new String[]{code_part1_TopCurve, code_part2_Right,"j"},
+                new String[]{code_part1_TopDown, code_part2_Left,"k"},
                 new String[]{code_part1_TopDown,code_part2_Up,"l"},
-                new String[]{code_part2_down, code_part1_LeftTopRightDown,"m"},
-                new String[]{code_part2_down,code_part1_LeftRight,"n"},
+                new String[]{code_part2_Down, code_part1_LeftTopRightDown,"m"},
+                new String[]{code_part2_Down,code_part1_LeftRight,"n"},
                 new String[]{code_part2_Circle,code_part1_LeftRight,"o"},
                 new String[]{code_part1_TopDown,code_part2_Circle,"p"},
-                new String[]{code_part2_down, code_part1_RightTopLeftDown,"q"},
-                new String[]{code_part2_right,code_part1_LeftRight,"r"},
-                new String[]{code_part1_RightTopLeftDown,code_part2_left,"s"},
-                new String[]{code_part1_TopDown,code_part2_right,"t"},
+                new String[]{code_part2_Down, code_part1_RightTopLeftDown,"q"},
+                new String[]{code_part2_Right,code_part1_LeftRight,"r"},
+                new String[]{code_part1_RightTopLeftDown, code_part2_Left,"s"},
+                new String[]{code_part1_TopDown, code_part2_Right,"t"},
                 new String[]{code_part2_Up,code_part1_LeftRight,"u"},
                 new String[]{code_part1_LeftTopRightDown,code_part2_Up,"v"},
                 new String[]{code_part2_Up, code_part1_RightTopLeftDown,"w"},
                 new String[]{code_part1_LeftTopRightDown, code_part1_RightTopLeftDown,"x"},
                 new String[]{code_part2_Up, code_part1_TopCurve,"y"},
-                new String[]{code_part1_LeftTopRightDown,code_part2_right,"z"},
+                new String[]{code_part1_LeftTopRightDown, code_part2_Right,"z"},
                 new String[]{shift, ctrl," "},
                 new String[]{ctrl,alt,"."},
                 new String[]{meta,shift,","},
@@ -661,6 +702,11 @@ public class MainActivity extends Activity {
                 new String[]{enter, code_part1_TopDown,"\n"},
                 new String[]{enter, code_part1_LeftTopRightDown,autoCompleteCommand},
                 new String[]{enter, code_part1_RightTopLeftDown,";"},
+                new String[]{enter, code_part2_Right,"\""},
+                new String[]{enter, code_part2_Up, threadInfoCommand},
+                new String[]{enter, code_part2_Left,bareRunCommand},
+                new String[]{enter, code_part2_Down,killThreadCommand},
+                new String[]{enter, code_part2_Circle,newCommand},
 
 
                 new String[]{shift, code_part1_LeftTopRightDown,"1"},
@@ -669,11 +715,11 @@ public class MainActivity extends Activity {
                 new String[]{shift,code_part1_LeftRight,"4"},
                 new String[]{shift, code_part1_TopCurve,"5"},
 
-                new String[]{ctrl,code_part2_right,"6"},
+                new String[]{ctrl, code_part2_Right,"6"},
                 new String[]{ctrl,code_part2_Up,"7"},
-                new String[]{ctrl,code_part2_left,"8"},
+                new String[]{ctrl, code_part2_Left,"8"},
                 new String[]{ctrl,code_part2_Circle,"9"},
-                new String[]{ctrl,code_part2_down,"0"},
+                new String[]{ctrl, code_part2_Down,"0"},
                 
                 new String[]{alt, code_part1_RightTopLeftDown,"/"},
                 new String[]{alt, code_part1_TopDown,"+"},
@@ -682,11 +728,11 @@ public class MainActivity extends Activity {
                 new String[]{alt, code_part1_TopCurve,";"},
 
 
-                new String[]{meta,code_part2_right,"<"},
+                new String[]{meta, code_part2_Right,"<"},
                 new String[]{meta,code_part2_Up,">"},
-                new String[]{meta,code_part2_left,"="},
+                new String[]{meta, code_part2_Left,"="},
                 new String[]{meta,code_part2_Circle,"["},
-                new String[]{meta,code_part2_down,"("},
+                new String[]{meta, code_part2_Down,"("},
 
 
         };
@@ -697,18 +743,56 @@ public class MainActivity extends Activity {
         }
 
     }
+    public int getScreenOrientation()
+    {
+        Display getOrient = getWindowManager().getDefaultDisplay();
+        int orientation = Configuration.ORIENTATION_UNDEFINED;
+        if(getOrient.getWidth()==getOrient.getHeight()){
+            orientation = Configuration.ORIENTATION_UNDEFINED;
+        } else{
+            if(getOrient.getWidth() < getOrient.getHeight()){
+                orientation = Configuration.ORIENTATION_PORTRAIT;
+            }else {
+                orientation = Configuration.ORIENTATION_LANDSCAPE;
+            }
+        }
+        return orientation;
+    }
 
     private void buildKeys(){
+        int orientation=getScreenOrientation();
+        float w = (float) 0.25;
+        float w_addiitonal = (float) 0.25;
+        float hStart = (float) -0.6;
+        float h = (float) 0.3;
+        Guideline[] pv_additional;
         /*create guidline*/
-        float w= (float) 0.25;
-        float hStart= (float) -0.6;
-        float h= (float) 0.3;
+        if(orientation==Configuration.ORIENTATION_PORTRAIT) {
+            w = (float) 0.25;
+            hStart = (float) -0.6;
+            h = (float) 0.3;
+            w_addiitonal= (float) (0.5/2);
+            pv_additional=new Guideline[5];
+            for(int i=0;i<5;i++) {
+                pv_additional[i] = createGuideLine(0, (float) i * w_addiitonal, mainCL);
+            }
+        }
+        else{
+            w = (float) 0.2;
+            hStart = (float) -0.85;
+            h = (float) 0.40;
+            w_addiitonal= (float) (0.5/3);
+            pv_additional=new Guideline[7];
+            for(int i=0;i<7;i++) {
+                pv_additional[i] = createGuideLine(0, (float) i * w_addiitonal, mainCL);
+            }
+        }
 
 
         Guideline[] pv=new Guideline[3];
         Guideline[] pv_=new Guideline[3];
         Guideline[] ph=new Guideline[5];
-        Guideline[] pv_additional=new Guideline[5];
+
         Guideline[] ph_additional=new Guideline[2];
 
 
@@ -719,8 +803,8 @@ public class MainActivity extends Activity {
 
         for(int i=0;i<5;i++){
             ph[i]=createGuideLine(1, (float) hStart+i*h,mainCL);
-            pv_additional[i]=createGuideLine(0, (float) i*w,mainCL);
         }
+
         for(int i=3;i<5;i++){
             ph_additional[i-3]=createGuideLine(1, (float) hStart+i*h,mainCL);
         }
@@ -729,15 +813,41 @@ public class MainActivity extends Activity {
         Guideline[] ph_temp=null;
         for(String name: positions.keySet()){
             KeyPosition p=positions.get(name);
-            if(p.part==0){ pv_temp=pv; ph_temp=ph;}
-            else if((p).part==1) { pv_temp=pv_; ph_temp=ph;}
+            if(p.part==0){ pv_temp=pv; ph_temp=ph;
+                mainCL.addView(createButton(name,codes.get(name),pv_temp[p.x],pv_temp[p.x+1],
+                        ph_temp[p.y],ph_temp[p.y+1]));
+            }
+            else if((p).part==1) { pv_temp=pv_; ph_temp=ph;
+                mainCL.addView(createButton(name,codes.get(name),pv_temp[p.x],pv_temp[p.x+1],
+                        ph_temp[p.y],ph_temp[p.y+1]));
+            }
             //else pv_temp=pv_center;
             else {
                 pv_temp=pv_additional;
                 ph_temp=ph_additional;
+                if(orientation==Configuration.ORIENTATION_PORTRAIT){
+                    mainCL.addView(createButton(name,codes.get(name),pv_temp[p.x],pv_temp[p.x+1],
+                            ph_temp[p.y],ph_temp[p.y+1]));
+                }
+                else{
+                    if(p.x==0){
+                        mainCL.addView(createButton(name, codes.get(name), pv_temp[0], pv_temp[1],
+                                ph_temp[p.y], ph_temp[p.y + 1]));
+                    }
+                    if(p.x==1||p.x==2) {
+                        mainCL.addView(createButton(name, codes.get(name), pv_temp[p.x], pv_temp[p.x + 1],
+                                ph_temp[p.y], ph_temp[p.y + 1]));
+                        mainCL.addView(createButton(name, codes.get(name), pv_temp[p.x+2], pv_temp[p.x+3],
+                                ph_temp[p.y], ph_temp[p.y + 1]));
+                    }
+                    if(p.x==3){
+                        mainCL.addView(createButton(name, codes.get(name), pv_temp[5], pv_temp[6],
+                                ph_temp[p.y], ph_temp[p.y + 1]));
+                    }
+                }
             }
-            mainCL.addView(createButton(name,codes.get(name),pv_temp[p.x],pv_temp[p.x+1],
-                    ph_temp[p.y],ph_temp[p.y+1]));
+
+
         }
 
 
@@ -747,15 +857,63 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         GlobalState.currentActivity=this;
-        GlobalState.command=command;
         initUI();
         if(ISAUTOMATICALLYSTARTSERVER)
             startServer();
-        JsThread t=new JsThread(command,this,ioLocker);
-        t.start();
+        startNewThread();
     }
-    IOLocker ioLocker=new IOLocker();
-    Command command =new Command("java.print('from main')");
+    public void startNewThread(){
+        /* command is a object to control the system to run new command or stop
+        isLocker is use in JsJava.read, to wait and read the system's input
+        * */
+        ioLock =new IOLock();
+        commandLock = new CommandLock();
+        JsThread t=new JsThread(commandLock,this, ioLock);
+        t.start();
+        GlobalState.commandLock = commandLock;
+        GlobalState.threads.add(t);
+        currentThread=GlobalState.threads.size()-1;
+    }
+    public void killCurrentThread(){
+        if(GlobalState.threads.size()>1) {
+            GlobalState.killThread(currentThread);
+            currentThread = 0;
+            setAsCurrentThread();
+            updateUI();
+        }
+    }
+    public void stopCurrentThread(){
+        if(commandLock.isAvailableForNewCommand){
+            synchronized (commandLock) {
+                commandLock.state = CommandLock.STOP;
+                commandLock.notify();
+            }
+        }
+        else{
+            addLogWithColor("unable to stop current js thread!\n", GlobalState.info);
+        }
+    }
+    public void previousThread(){
+        if(currentThread>0)
+            currentThread-=1;
+        setAsCurrentThread();
+        updateUI();
+    }
+    public void nextThread(){
+        if(currentThread<GlobalState.threads.size()-1)
+            currentThread+=1;
+        setAsCurrentThread();
+        updateUI();
+    }
+
+    public void setAsCurrentThread(){
+        JsThread t=GlobalState.threads.get(currentThread);
+        commandLock = t.c;
+        ioLock =t.ioLock;
+    }
+    public int currentThread=-1;
+    IOLock ioLock;
+    CommandLock commandLock;
     protected void onDestroy(){
         super.onDestroy();
     }
@@ -816,7 +974,7 @@ public class MainActivity extends Activity {
     }
 
 
-    String modelLine="%d %s %d";
+    String modelLine="%d %s %d @%d";
     private boolean isTooLarge(String s){
         float tw=jsLog.getPaint().measureText(s);
         return (tw>=jsLog.getMeasuredWidth()-80);
@@ -845,7 +1003,7 @@ public class MainActivity extends Activity {
         if(isCtrOn)state+=ctrlIcon;
         if(isAltOn)state+=altIcon;
         if(isMetaOn)state+=metaIcon;
-        String mode=(String.format(modelLine,currentCaret,state, currentHistory));
+        String mode=(String.format(modelLine,currentCaret,state, currentHistory,currentThread));
         sb.append("\n"+wrapToFitLine(mode)+"\n");
         int previousSize=sb.length();
         sb.append(currentInput);
@@ -874,6 +1032,7 @@ public class MainActivity extends Activity {
 //                new ForegroundColorSpan(color), outputIndex, newOutputIndex, 0);
 //        outputIndex=newOutputIndex;
 //
+
         output.append(text);
         int newOutputIndex = output.length();
         output.setSpan(new ForegroundColorSpan(color),
@@ -986,57 +1145,102 @@ public class MainActivity extends Activity {
     int outputIndex=0;
 
     public boolean onKeyUp(int keycode, KeyEvent event){
-        if(keycode==KeyEvent.KEYCODE_DPAD_RIGHT)
-            isEffectiveCtrlOn=false;
+
         return true;
     }
-    boolean isEffectiveCtrlOn=false;
-    public boolean onKeyDown(int keycode, KeyEvent event){
-        if(keycode==KeyEvent.KEYCODE_DPAD_RIGHT)
-            isEffectiveCtrlOn=true;
-        else if(event.isCtrlPressed()||isEffectiveCtrlOn){
-            if(keycode==KeyEvent.KEYCODE_B)
-                return cursorLeft();
-            else if(keycode==KeyEvent.KEYCODE_F)
-                return cursorRight();
-            else if(keycode==KeyEvent.KEYCODE_R)
-                return runCode(true);
-            else if(keycode==KeyEvent.KEYCODE_J)
-                return runCode(false);
-            else if(keycode==KeyEvent.KEYCODE_M)
-                return setMark();
-            else if(keycode==KeyEvent.KEYCODE_P)
-                return cursorUp();
-            else if(keycode==KeyEvent.KEYCODE_N)
-                return cursorDown();
-            else if(keycode==KeyEvent.KEYCODE_W)
-                return cut();
-            else if(keycode==KeyEvent.KEYCODE_Y)
-                return paste();
-            else if(keycode==KeyEvent.KEYCODE_E)
-                return endOfLine();
-            else if(keycode==KeyEvent.KEYCODE_A)
-                return beginningOfLine();
-            else if(keycode==KeyEvent.KEYCODE_I)
-                return writeToIO();
-            else if(keycode==KeyEvent.KEYCODE_L)
-                return addChar('\n');
-            else if(keycode==KeyEvent.KEYCODE_T)
-                return addString("  ");
-            else if(keycode==KeyEvent.KEYCODE_O)
-                return addString(" ");
 
-            else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET){
-                return historyDown();
-            }
-            else if(keycode==KeyEvent.KEYCODE_LEFT_BRACKET){
-                return historyUp();
-            }
+    public boolean onCtrModify(int keycode, KeyEvent event){
+        if(keycode==KeyEvent.KEYCODE_B)
+            return cursorLeft();
+        else if(keycode==KeyEvent.KEYCODE_F)
+            return cursorRight();
+        else if(keycode==KeyEvent.KEYCODE_R)
+            return runCode(true);
+        else if(keycode==KeyEvent.KEYCODE_J)
+            return runCode(false);
+        else if(keycode==KeyEvent.KEYCODE_M)
+            return setMark();
+        else if(keycode==KeyEvent.KEYCODE_P)
+            return cursorUp();
+        else if(keycode==KeyEvent.KEYCODE_N)
+            return cursorDown();
+        else if(keycode==KeyEvent.KEYCODE_W)
+            return cut();
+        else if(keycode==KeyEvent.KEYCODE_Y)
+            return paste();
+        else if(keycode==KeyEvent.KEYCODE_E)
+            return endOfLine();
+        else if(keycode==KeyEvent.KEYCODE_A)
+            return beginningOfLine();
+        else if(keycode==KeyEvent.KEYCODE_I)
+            return writeToIO();
+        else if(keycode==KeyEvent.KEYCODE_U){
+            GlobalState.showThreadInfo();
+            return true;}
+        else if(keycode==KeyEvent.KEYCODE_L)
+            return addChar('\n');
+        else if(keycode==KeyEvent.KEYCODE_T)
+            return addString("  ");
+        else if(keycode==KeyEvent.KEYCODE_O)
+            return addString(" ");
+        else if(keycode==KeyEvent.KEYCODE_C){
+            startNewThread();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_K){
+            killCurrentThread();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_G){
+            stopCurrentThread();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_Q){
+            return toggleOnScreenKeyboard();
+        }
+        else if(keycode==KeyEvent.KEYCODE_MINUS){
+            previousThread();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_EQUALS){
+            nextThread();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET){
+            return historyDown();
+        }
+        else if(keycode==KeyEvent.KEYCODE_LEFT_BRACKET){
+            return historyUp();
+        }
+        return true;
+    }
+
+    public boolean onAtlModify(int keycode, KeyEvent event){
+        if(keycode==KeyEvent.KEYCODE_W){
+            return copy();
+        }
+        else if(keycode==KeyEvent.KEYCODE_B){
+            return wordLeft();
+        }
+        else if(keycode==KeyEvent.KEYCODE_F){
+            return wordRight();
+        }
+        else if(keycode==KeyEvent.KEYCODE_U){
+            return runCodeInUIThread();
+        }
+        else if(keycode==KeyEvent.KEYCODE_C){
+            callback.run(this);
+            return true;
+        }
+        return true;
+    }
+
+    public boolean onKeyDown(int keycode, KeyEvent event){
+        if(event.isCtrlPressed()){
+            return onCtrModify(keycode,event);
         }
         else if(event.isAltPressed()){
-            if(keycode==KeyEvent.KEYCODE_W){
-                return copy();
-            }
+            return onAtlModify(keycode,event);
         }
         else if(keycode>=KeyEvent.KEYCODE_A && keycode<=KeyEvent.KEYCODE_Z){
             char base='a';
@@ -1062,26 +1266,15 @@ public class MainActivity extends Activity {
                 addChar('>');
             else
                 addChar('.');
-            //addLogWithColor(getCurrentVariableHint()+"\n",GlobalState.info);
             return true;
         }
-        else if(keycode==KeyEvent.KEYCODE_ALT_RIGHT){
-            addChar(' ');
-            return true;
-        }
+
         else if(keycode==KeyEvent.KEYCODE_LEFT_BRACKET){
             if(event.isShiftPressed())
                 addString("{}");
             else
                 addString("[]");
             cursorLeft();
-            return true;
-        }
-        else if(keycode== KeyEvent.KEYCODE_MINUS){
-            if (event.isShiftPressed())
-                addString("_");
-            else
-                addString("-");
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_RIGHT_BRACKET) {
@@ -1091,6 +1284,14 @@ public class MainActivity extends Activity {
                 addString("]");
             return true;
         }
+        else if(keycode== KeyEvent.KEYCODE_MINUS){
+            if (event.isShiftPressed())
+                addString("_");
+            else
+                addString("-");
+            return true;
+        }
+
         else if(keycode==KeyEvent.KEYCODE_APOSTROPHE){
             if(event.isShiftPressed()){
                 addString("\"\"");
@@ -1102,11 +1303,31 @@ public class MainActivity extends Activity {
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_DPAD_UP){
-            historyUp();
+            if(event.isShiftPressed())
+                historyUp();
+            else
+                cursorUp();
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_DPAD_DOWN){
-            historyDown();
+            if(event.isShiftPressed())
+                historyDown();
+            else
+                cursorDown();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_DPAD_LEFT){
+            if(event.isShiftPressed())
+                previousThread();
+            else
+                cursorLeft();
+            return true;
+        }
+        else if(keycode==KeyEvent.KEYCODE_DPAD_RIGHT){
+            if(event.isShiftPressed())
+                nextThread();
+            else
+                cursorRight();
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_EQUALS){
@@ -1115,12 +1336,20 @@ public class MainActivity extends Activity {
             }
             else {
                 addChar('=');
-                //addLogWithColor(getCurrentVariableValue()+"\n",GlobalState.info);
             }
             return true;
         }
         else if(keycode==KeyEvent.KEYCODE_DEL){
-            return deleteLeft();
+            if(isMarkOn)
+                return cut();
+            else
+                return deleteLeft();
+        }
+        else if(keycode==KeyEvent.KEYCODE_FORWARD_DEL){
+            if(isMarkOn)
+                return cut();
+            else
+                return deleteRight();
         }
         else if(keycode==KeyEvent.KEYCODE_SEMICOLON){
             if(event.isShiftPressed()){
@@ -1139,11 +1368,25 @@ public class MainActivity extends Activity {
         else if(keycode==KeyEvent.KEYCODE_TAB){
             return autocomplete();
         }
-        else if(!(keycode==KeyEvent.KEYCODE_CTRL_LEFT||keycode==KeyEvent.KEYCODE_SHIFT_LEFT
-                ||keycode==KeyEvent.KEYCODE_DPAD_RIGHT
-        ))
-            addString("["+keycode+"]");
+        else if(keycode!=KeyEvent.KEYCODE_SHIFT_LEFT||keycode!=KeyEvent.KEYCODE_SHIFT_RIGHT)
+            addLogWithColor("["+keycode+"]",GlobalState.infoDebug);
 
+        return true;
+    }
+
+
+    public boolean toggleOnScreenKeyboard(){
+        for(int i=0;i<mainCL.getChildCount();i++){
+            View v=mainCL.getChildAt(i);
+            if(v instanceof MultiButton){
+                if(v.getVisibility()==View.VISIBLE){
+                    v.setVisibility(View.GONE);
+                }
+                else{
+                    v.setVisibility(View.VISIBLE);
+                }
+            }
+        }
         return true;
     }
     public boolean autocomplete(){
@@ -1232,29 +1475,34 @@ public class MainActivity extends Activity {
         String[] parsedForm=parseVariable(variable);
         String hint=parsedForm[1];
         result.add(hint);
-        synchronized (command){
-            command.setHint(parsedForm);
-            command.notify();
-            try {
-                command.wait();
-                command.state=Command.running;
-                String[] candidates=command.hintResult.split(",");
-                for(String s:candidates){
-                    if(s.startsWith(hint)){
-                        result.add(s);
-                    }
-                }
-                if(parsedForm[0].equals("")){
-                    for(String s:javascriptkeywords){
+        if(commandLock.isAvailableForNewCommand){
+            synchronized (commandLock){
+                commandLock.setHint(parsedForm);
+                commandLock.notify();
+                try {
+                    commandLock.wait();
+                    commandLock.state= CommandLock.RUNCODE;
+                    String[] candidates= commandLock.hintResult.split(",");
+                    for(String s:candidates){
                         if(s.startsWith(hint)){
                             result.add(s);
                         }
                     }
+                    if(parsedForm[0].equals("")){
+                        for(String s:javascriptkeywords){
+                            if(s.startsWith(hint)){
+                                result.add(s);
+                            }
+                        }
+                    }
+                    return result;
+                } catch (InterruptedException e) {
+                    addLogWithColor(e.toString(),GlobalState.error);
                 }
-                return result;
-            } catch (InterruptedException e) {
-                addLogWithColor(e.toString(),GlobalState.error);
             }
+        }
+        else{
+            addLogWithColor("\njs thread is not ready for new command!\n", GlobalState.error);
         }
         return result;
     }
@@ -1274,21 +1522,19 @@ public class MainActivity extends Activity {
         try {
 
             String codeInput=currentInput.toString();
-            synchronized (ioLocker) {
-                if(!ioLocker.isBlocked) {
-                    synchronized (command) {
-                        command.id = codeHistory.size();
-                        command.code = codeInput;
-                        command.useBabel=useBabel;
-                        command.notify();
-                    }
-                    codeHistory.add(codeInput);
-                    currentHistory = codeHistory.size() - 1;
-                    emptyInput();
+            if(commandLock.isAvailableForNewCommand) {
+                synchronized (commandLock) {
+                    commandLock.id = codeHistory.size();
+                    commandLock.code = codeInput;
+                    commandLock.useBabel = useBabel;
+                    commandLock.notify();
                 }
-                else{
-                    addLogWithColor("js thread is io blocked\n",GlobalState.error);
-                }
+                codeHistory.add(codeInput);
+                currentHistory = codeHistory.size() - 1;
+                emptyInput();
+            }
+            else{
+                addLogWithColor("\njs thread is not ready !\n", GlobalState.error);
             }
         }
         catch (Exception e){
@@ -1297,11 +1543,37 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    CallBack callback=new CallBack() {
+        @Override
+        public void run(MainActivity a) {
+            addLogWithColor("empty callback\n",GlobalState.infoDebug);
+        }
+    };
+    public void setCallBack(CallBack a){
+        callback=a;
+    }
+    private boolean runCodeInUIThread(){
+        if(commandLock.isAvailableForNewCommand){
+            commandLock.runInCurrentThread(currentInput.toString(),
+                        true);
+        }
+        else{
+            addLogWithColor("\njs thread is not ready to run in current thread!\n", GlobalState.error);
+        }
+        return true;
+    }
     private boolean deleteLeft() {
         if(currentCaret>0) {
             currentInput.delete(currentCaret-1,currentCaret);
         }
         cursorLeft();
+        return true;
+    }
+    private boolean deleteRight() {
+        if(currentCaret<currentInput.length()) {
+            currentInput.delete(currentCaret,currentCaret+1);
+        }
+        setSelected();
         return true;
     }
     private boolean deleteLeft(int n) {
@@ -1336,7 +1608,7 @@ public class MainActivity extends Activity {
     private void setSelected(){
         currentInput.clearSpans();
         if(currentCaret<currentInput.length()&&currentCaret>=0) {
-            if(markon) {
+            if(isMarkOn) {
                 if (currentCaret < markPosition)
                     currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), currentCaret, markPosition + 1, 0);
                 else
@@ -1347,7 +1619,7 @@ public class MainActivity extends Activity {
             }
         }
         if(currentCaret==currentInput.length()){
-            if(markon)
+            if(isMarkOn)
                 currentInput.setSpan(new BackgroundColorSpan(Color.BLUE), markPosition, currentInput.length(), 0);
         }
         updateUI();
@@ -1399,8 +1671,30 @@ public class MainActivity extends Activity {
             currentCaret-=1;
             setSelected();
         }
-
         updateInput();
+        return true;
+    }
+    private boolean wordLeft(){
+        cursorLeft();
+        while(isSymbol(currentInput.charAt(currentCaret))){
+            cursorLeft();
+            if(currentCaret==0)
+                break;
+        }
+        return true;
+    }
+    private boolean wordRight(){
+        cursorRight();
+        while(true){
+            cursorRight();
+            if(currentCaret==currentInput.length())
+                break;
+            else{
+                if(!isSymbol(currentInput.charAt(currentCaret))){
+                    break;
+                }
+            }
+        }
         return true;
     }
     private boolean cursorLeft(int n) {
@@ -1414,7 +1708,7 @@ public class MainActivity extends Activity {
     int markPosition=0;
     private boolean setMark(){
         markPosition=currentCaret;
-        markon =!markon;
+        isMarkOn =!isMarkOn;
         return true;
     }
     private LinkedList<String> copyboards=new LinkedList<>();
@@ -1428,7 +1722,7 @@ public class MainActivity extends Activity {
             currentInput=currentInput.delete(markPosition,currentCaret);
             currentCaret=markPosition;
         }
-        markon=!markon;
+        isMarkOn =!isMarkOn;
         updateUI();
         return true;
     }
@@ -1441,7 +1735,7 @@ public class MainActivity extends Activity {
             copyboards.add((String) currentInput.subSequence(markPosition,currentCaret).toString());
             currentCaret=markPosition;
         }
-        markon=!markon;
+        isMarkOn =!isMarkOn;
         updateUI();
         return true;
     }
@@ -1475,10 +1769,10 @@ public class MainActivity extends Activity {
     }
     private boolean writeToIO(){
         String content=currentInput.toString();
-        synchronized (ioLocker){
-            ioLocker.content.delete(0,ioLocker.content.length());
-            ioLocker.content.append(content);
-            ioLocker.notify();
+        synchronized (ioLock){
+            ioLock.content.delete(0, ioLock.content.length());
+            ioLock.content.append(content);
+            ioLock.notify();
         }
         return true;
     }

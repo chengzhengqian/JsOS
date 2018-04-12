@@ -3,8 +3,6 @@ package com.serendipity.chengzhengqian.jsos;
 import android.os.AsyncTask;
 import fi.iki.elonen.NanoHTTPD;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -85,11 +83,11 @@ public class JsServer extends NanoHTTPD {
                     public void run() {
                         try {
                             GlobalState.printToLog(">>>\n"+content+"\n<<<\n",GlobalState.info);
-                            synchronized (GlobalState.command){
-                                if(GlobalState.command.state==Command.running){
-                                    GlobalState.command.code=content;
-                                    GlobalState.command.id=-1;
-                                    GlobalState.command.notify();
+                            synchronized (GlobalState.commandLock){
+                                if(GlobalState.commandLock.state== CommandLock.RUNCODE){
+                                    GlobalState.commandLock.code=content;
+                                    GlobalState.commandLock.id=-1;
+                                    GlobalState.commandLock.notify();
                                 }
                             }
                         }catch (Exception e){

@@ -678,6 +678,23 @@ public class JsNative {
     public static native int pCompile(long context, int flags);
 
     /**
+     * . . .  → . . . thr
+     Summary §
+     Push a new Duktape thread (context, coroutine) to the stack. Returns non-negative index (relative to stack bottom) of the pushed thread. The new thread will be associated with the same Duktape heap as the argument ctx, and will share the same global object environment.
+
+     To interact with the new thread with the Duktape API, use duk_get_context() to get a context pointer for API calls.
+
+     Example §
+     duk_idx_t thr_idx;
+     duk_context *new_ctx;
+
+     thr_idx = duk_push_thread(ctx);
+     new_ctx = duk_get_context(ctx, thr_idx);
+     * @param context
+     * @return
+     */
+    public static native int pushThread(long context);
+    /**
      * . . .  → . . . obj
      * Summary §
      * Similar to duk_push_object() but the pushed object doesn't inherit from any other object, i.e. its internal prototype is null. This call is equivalent to Object.create(null). Returns non-negative index (relative to stack bottom) of the pushed object.
@@ -980,7 +997,19 @@ public class JsNative {
         }
         return null;
     }
+    /**
+     (No effect on value stack.)
 
+     Summary §
+     Force a mark-and-sweep garbage collection round. If mark-and-sweep is disabled in the Duktape build, the call is a no-op.
+
+     The following flags are defined:
+
+     Define	Description
+     DUK_GC_COMPACT	Force object property table compaction
+     You may want to call this function twice to ensure even objects with finalizers are collected. Currently it takes two mark-and-sweep rounds to collect such objects. First round marks the object as finalizable and runs the finalizer. Second round ensures the object is still unreachable after finalization and then frees the object.
+     */
+    public static native void gc(long context, int flags);
     /**
      * . . . val . . .
      * Summary §
@@ -998,6 +1027,22 @@ public class JsNative {
      * @return
      */
     public static native boolean getBoolean(long context, int index);
+
+    /**
+     * duk_context *duk_get_context(duk_context *ctx, duk_idx_t idx);
+     Stack §
+     . . . val . . .
+     Summary §
+     Get a context pointer for a Duktape thread at idx. If the value at idx is not a Duktape thread or the index is invalid, returns NULL.
+
+     The returned context pointer is only valid while the Duktape thread is reachable from a garbage collection point of view.
+
+     If you prefer an error to be thrown for an invalid value or index, use duk_require_context()
+     * @param context
+     * @param index
+     * @return
+     */
+    public static native long getContext(long context, int index);
 
     /**
      * . . . obj . . .  → . . . obj . . . val  (if key exists)

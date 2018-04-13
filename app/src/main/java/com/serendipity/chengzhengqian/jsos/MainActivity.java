@@ -10,7 +10,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.Guideline;
+import android.text.Editable;
 import android.text.SpannableStringBuilder;
+import android.text.method.KeyListener;
 import android.text.method.ScrollingMovementMethod;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
@@ -582,14 +584,42 @@ public class MainActivity extends Activity {
     private void initLog(){
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
+
         jsLog.setTextSize(20.f);
-        setMode(EDITMODE);
         setRootDir();
+        setMode(EDITMODE);
         currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
                 "\nc=java.load('CallBack');" +
                 "\np=java.proxy(c,'a');" +
                 "\njava.app.setCallBack(p);" +
                 "\na={};a.run=(x)=>{java.print(x);}");
+        jsLog.setKeyListener(new KeyListener() {
+            @Override
+            public int getInputType() {
+                return 0;
+            }
+
+            @Override
+            public boolean onKeyDown(View view, Editable editable, int i, KeyEvent keyEvent) {
+                keyHandle(i,keyEvent);
+                return true;
+            }
+
+            @Override
+            public boolean onKeyUp(View view, Editable editable, int i, KeyEvent keyEvent) {
+                return false;
+            }
+
+            @Override
+            public boolean onKeyOther(View view, Editable editable, KeyEvent keyEvent) {
+                return false;
+            }
+
+            @Override
+            public void clearMetaKeyState(View view, Editable editable, int i) {
+
+            }
+        });
         updateUI();
     }
     class KeyPosition {
@@ -1038,22 +1068,20 @@ public class MainActivity extends Activity {
     SpannableStringBuilder output=new SpannableStringBuilder();
 
     public void addLogWithColor( String text, int color) {
-//        setOnlyOutput();
-//        jsLog.append(text);
-//        int newOutputIndex = jsLog.getText().length();
-//        Spannable spannableText = (Spannable) jsLog.getText();
-//        spannableText.setSpan(
-//                new ForegroundColorSpan(color), outputIndex, newOutputIndex, 0);
-//        outputIndex=newOutputIndex;
-//
+
+        addStringWithColor(text,color);
+        updateUI();
+    }
+    public void addStringWithColor( String text, int color) {
 
         output.append(text);
         int newOutputIndex = output.length();
         output.setSpan(new ForegroundColorSpan(color),
                 outputIndex, newOutputIndex, 0);
         outputIndex=newOutputIndex;
-        updateUI();
+
     }
+
 
     TextView jsLog;
     public int maxLineNumbers=1000;
@@ -1153,9 +1181,8 @@ public class MainActivity extends Activity {
 
     int outputIndex=0;
 
-    public boolean onKeyUp(int keycode, KeyEvent event){
-
-        return true;
+    public boolean onKeyDown(int keycode, KeyEvent event){
+        return keyHandle(keycode,event);
     }
 
     public boolean onCtrModify(int keycode, KeyEvent event){
@@ -1167,7 +1194,7 @@ public class MainActivity extends Activity {
             return runCode(true,true);
         else if(keycode==KeyEvent.KEYCODE_J)
             return runCode(false,true);
-        else if(keycode==KeyEvent.KEYCODE_M)
+        else if(keycode==KeyEvent.KEYCODE_SPACE)
             return setMark();
         else if(keycode==KeyEvent.KEYCODE_P)
             return cursorUp();
@@ -1186,8 +1213,6 @@ public class MainActivity extends Activity {
         else if(keycode==KeyEvent.KEYCODE_U){
             GlobalState.showThreadInfo();
             return true;}
-        else if(keycode==KeyEvent.KEYCODE_L)
-            return addChar('\n');
         else if(keycode==KeyEvent.KEYCODE_T)
             return addString("  ");
         else if(keycode==KeyEvent.KEYCODE_O)
@@ -1251,7 +1276,8 @@ public class MainActivity extends Activity {
         return true;
     }
 
-    public boolean onKeyDown(int keycode, KeyEvent event){
+    public boolean keyHandle(int keycode, KeyEvent event){
+
         if(event.isCtrlPressed()){
             return onCtrModify(keycode,event);
         }
@@ -1367,6 +1393,15 @@ public class MainActivity extends Activity {
                 return cut();
             else
                 return deleteLeft();
+        }
+        else if(keycode==KeyEvent.KEYCODE_SPACE){
+            return addChar(' ');
+        }
+        else if(keycode==KeyEvent.KEYCODE_ENTER){
+            if(currentMode==CMDMODE)
+                return runCmd(true);
+            else
+                return addChar('\n');
         }
         else if(keycode==KeyEvent.KEYCODE_FORWARD_DEL){
             if(isMarkOn)
@@ -1616,9 +1651,11 @@ public class MainActivity extends Activity {
                                 }
                                 arg.append("\""+cmd[i]+"\"");
                             }
-                            arg.append("]");
-                            runCodeInUIThread(arg.toString());
-                            runCodeInUIThread(readFile(f));
+                            arg.append("];");
+                            runJsCode(arg.toString()+"\n"+readFile(f),true,
+                                    false);
+                            //runCodeInUIThread(arg.toString());
+                            //runCodeInUIThread(readFile(f));
                         }
                     }
                 }
@@ -1716,6 +1753,11 @@ public class MainActivity extends Activity {
             currentCodeInput.append(readFile(f));
             updateUI();
         }
+        else{
+            setMode(EDITMODE);
+            currentFileName=f.getName();
+            updateUI();
+        }
 
     }
     private void call_cd(String[] cmd){
@@ -1775,6 +1817,26 @@ public class MainActivity extends Activity {
                 }
                 if(isClean)
                     pushToHistory(codeInput);
+            }
+            else{
+                addLogWithColor("\njs thread is not ready !\n", GlobalState.error);
+            }
+        }
+        catch (Exception e){
+            addLogWithColor(e.toString()+"\n",GlobalState.error);
+        }
+        return true;
+    }
+    private boolean runJsCode(String codeInput, boolean useBabel,boolean showOutput){
+        try {
+            if(commandLock.isAvailableForNewCommand) {
+                synchronized (commandLock) {
+                    CommandLock.isShowOutput=showOutput;
+                    commandLock.id = codeHistory.size();
+                    commandLock.code = codeInput;
+                    commandLock.useBabel = useBabel;
+                    commandLock.notify();
+                }
             }
             else{
                 addLogWithColor("\njs thread is not ready !\n", GlobalState.error);
@@ -2049,6 +2111,7 @@ public class MainActivity extends Activity {
         if(mode==EDITMODE){
             currentInput=currentCodeInput;
             currentCaret=codeCaretPosition;
+            call_save(new String[]{"save"});
         }
         else if(mode==CMDMODE){
             currentInput=currentCommandInput;

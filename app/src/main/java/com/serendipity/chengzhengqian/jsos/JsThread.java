@@ -66,6 +66,7 @@ public class JsThread extends Thread {
                     else if(c.state== CommandLock.STOP){
                         isContinue=false;
                     }
+                    GlobalState.updateUI();
                 } catch (InterruptedException e) {
                     //GlobalState.printToLog(e.toString(),GlobalState.error);
                     JsNative.releaseJavaHandle(ctx);//as we allow other thread inject in
@@ -115,7 +116,7 @@ public class JsThread extends Thread {
             }
             JsNative.safeEvalString(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
-            if(CommandLock.isShowOutput)
+            if(CommandLock.isShowOutput||s.equals(babletransformError))
                 GlobalState.printToLog(String.format(
                         "\nOut[%d]: %s\n",id,s
                 ),GlobalState.info);

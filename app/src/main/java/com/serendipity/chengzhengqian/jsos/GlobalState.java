@@ -25,6 +25,14 @@ public class GlobalState {
             threads.remove(index);
         }
     }
+    public static void updateUI(){
+        currentActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                currentActivity.updateUI();
+            }
+        });
+    }
     public static void showThreadInfo(){
         currentActivity.runOnUiThread(new Runnable() {
             @Override
@@ -45,12 +53,7 @@ public class GlobalState {
             }
         });
     }
-    static void printToLog(final String s, final int Color){
-        currentActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                currentActivity.addLogWithColor(s,Color);
-            }
-        });
+    static void printToLog( String s, int color){
+         currentActivity.addStringWithColor(s,color);
     }
 }

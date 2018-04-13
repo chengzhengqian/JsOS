@@ -12,6 +12,7 @@
             android:id="@+id/sample_text"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:maxLines="5000"
             android:gravity="bottom"
             android:background="@android:color/transparent"
             android:textColor="@android:color/holo_green_dark"

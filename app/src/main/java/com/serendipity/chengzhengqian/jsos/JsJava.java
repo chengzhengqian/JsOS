@@ -1,15 +1,11 @@
 package com.serendipity.chengzhengqian.jsos;
 
 import android.support.constraint.ConstraintLayout;
-import android.support.constraint.Guideline;
-import android.widget.Button;
-import android.widget.LinearLayout;
 
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ServiceConfigurationError;
 
 /**
  * a instance of it will push to javascript as a global variable java
@@ -25,19 +21,22 @@ public class JsJava {
     private final CommandLock cmdLock;
     private final long ctx;
     public MainActivity app;
+    public ConstraintLayout ui;
     public static final String version="1.0.0";
     public JsJava(MainActivity m, IOLock s, CommandLock cmlk){
         this.app=m;this.ioLock =s; this.ctx=cmlk.mainCtx;
-        this.cmdLock=cmlk;
+        this.cmdLock=cmlk; this.ui=app.ui;
     }
     public static void print(Object s){
         GlobalState.printToLog(s.toString(),GlobalState.normal);
     }
     public static List<String> PATH=new LinkedList<>(Arrays.asList(
             "com.serendipity.chengzhengqian.jsos.",
-            "android.widget."
+            "android.widget.",
+            "android.view.",
+            "android.view.View$"
     ));
-    public static Class<?> loadWithPATH(String name, List<String> path){
+    public static Class<?> load(String name, List<String> path){
         for(String s:path){
             try{
                 return Class.forName(s+name);
@@ -49,12 +48,11 @@ public class JsJava {
         GlobalState.printToLog("class "+name+"not found!\n",GlobalState.error);
         return JsJava.class;
     }
-    public static Class<?> load(String name){
+    public static Class<?> require(String name){
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException e) {
-
-            return loadWithPATH(name,PATH);
+            return load(name,PATH);
         }
 
     }
@@ -81,37 +79,18 @@ public class JsJava {
         }
 
     }
-    public Object proxy(Class<?> c, String code){
+    /*
+    to avoid complexity, we require
+    * */
+    public Object proxy(Class<?> c, String name){
         return Proxy.newProxyInstance(
                 c.getClassLoader(),
                 new Class[]{c},
-                new JsInvocativeHandler(code,cmdLock)
+                new JsInvocativeHandler(name,cmdLock)
         );
     }
-
-    public LinearLayout createWindow(int width, int height){
-        LinearLayout l=new LinearLayout(this.app);
-        Guideline g=new Guideline(this.app);
-        ConstraintLayout.LayoutParams p=new ConstraintLayout.LayoutParams(
-                ConstraintLayout.LayoutParams.WRAP_CONTENT,
-                ConstraintLayout.LayoutParams.WRAP_CONTENT
-        );
-        p.orientation=ConstraintLayout.LayoutParams.HORIZONTAL;
-        p.guidePercent= (float) 0.8;
-        g.setLayoutParams(p);
-        this.app.mainCL.addView(g);
-        ConstraintLayout.LayoutParams pl=new ConstraintLayout.LayoutParams(
-                width,
-                height
-        );
-        pl.orientation=ConstraintLayout.LayoutParams.HORIZONTAL;
-        pl.topToTop=app.mainCL.getId();
-        pl.bottomToBottom=g.getId();
-        pl.leftToLeft=app.mainCL.getId();
-        pl.rightToRight=app.mainCL.getId();
-        l.setLayoutParams(pl);
-        this.app.mainCL.addView(l);
-        return l;
+    public void gotoUI(){
+        app.setViewMode(true);
     }
 
 

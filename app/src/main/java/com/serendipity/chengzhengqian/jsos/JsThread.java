@@ -82,6 +82,7 @@ public class JsThread extends Thread {
         GlobalState.printToLog("js thread is stopped", GlobalState.info);
     }
     public static String babletransformError="'bable_err'";
+
     /* transform the code the stored in global variables*/
     public static String transformCode(long ctx,String codeInput){
         JsNative.pushString(ctx,codeInput);
@@ -98,6 +99,8 @@ public class JsThread extends Thread {
             JsNative.pop(ctx);
             return result;
         }
+        GlobalState.printToLog("\nsyntax error in processing within babel!\n",
+                GlobalState.error);
         return babletransformError;
     }
     public static final int bableCodeHeadSize=13;
@@ -116,7 +119,7 @@ public class JsThread extends Thread {
             }
             JsNative.safeEvalString(ctx,codeInput);
             String s=JsNative.safeToString(ctx, -1);
-            if(CommandLock.isShowOutput||s.equals(babletransformError))
+            if(CommandLock.isShowOutput)
                 GlobalState.printToLog(String.format(
                         "\nOut[%d]: %s\n",id,s
                 ),GlobalState.info);

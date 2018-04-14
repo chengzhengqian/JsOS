@@ -18,6 +18,7 @@ import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.view.*;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.*;
@@ -28,11 +29,13 @@ import java.util.List;
 
 public class MainActivity extends Activity {
 
-    // Used to load the 'native-lib' library on application startup.
+    // Used to require the 'native-lib' library on application startup.
     static {
         System.loadLibrary("js-native");
     }
     ConstraintLayout mainCL;
+    public ConstraintLayout ui;
+
     private String runCommand="##\uD83D\uDE80";
     private String threadInfoCommand ="##\uD83C\uDFAE";
     private String newCommand="##✈";
@@ -577,9 +580,14 @@ public class MainActivity extends Activity {
         initKeys();
         initShapeInputMap();
         buildKeys();
+        toggleOnScreenKeyboard();
+        setViewMode(false);
     }
     private void initMainUI(){
         mainCL=findViewById(R.id.main);
+        ui=findViewById(R.id.ui);
+        buildToggleKey();
+
     }
     private void initLog(){
         jsLog =  findViewById(R.id.sample_text);
@@ -587,12 +595,12 @@ public class MainActivity extends Activity {
 
         jsLog.setTextSize(20.f);
         setRootDir();
-        setMode(EDITMODE);
-        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
-                "\nc=java.load('CallBack');" +
-                "\np=java.proxy(c,'a');" +
-                "\njava.app.setCallBack(p);" +
-                "\na={};a.run=(x)=>{java.print(x);}");
+        setMode(CMDMODE);
+//        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
+//                "\nc=java.require('CallBack');" +
+//                "\np=java.proxy(c,'a');" +
+//                "\njava.app.setCallBack(p);" +
+//                "\na={};a.run=(x)=>{java.print(x);}");
         jsLog.setKeyListener(new KeyListener() {
             @Override
             public int getInputType() {
@@ -790,7 +798,50 @@ public class MainActivity extends Activity {
         }
         return orientation;
     }
-
+    public boolean isUImode=false;
+    public String toggleKeyInCmdMode="  ⌨  ";
+    public String toggleKeyInUIMode="<=";
+    Button toggle;
+    public void setViewMode(boolean isUiMode){
+        this.isUImode=isUiMode;
+        LinearLayout.LayoutParams show=new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT,1);
+        LinearLayout.LayoutParams noshow=new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT,0);
+        if(isUiMode){
+            toggle.setText(toggleKeyInUIMode);
+            jsLog.setLayoutParams(noshow);
+            ui.setLayoutParams(show);
+        }
+        else{
+            toggle.setText(toggleKeyInCmdMode);
+            jsLog.setLayoutParams(show);
+            ui.setLayoutParams(noshow);
+        }
+    }
+    private void buildToggleKey(){
+        toggle=new Button(this);
+        toggle.setTextSize(20);
+        toggle.setText(toggleKeyInCmdMode);
+        toggle.setTextColor(Color.GRAY);
+        toggle.setBackgroundColor(Color.TRANSPARENT);
+        ConstraintLayout.LayoutParams lp=new ConstraintLayout.LayoutParams(0,0);
+        lp.rightToRight=mainCL.getId();
+        lp.topToTop=mainCL.getId();
+        toggle.setLayoutParams(lp);
+        toggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(isUImode){
+                    setViewMode(false);
+                }
+                else{
+                    toggleOnScreenKeyboard();
+                }
+            }
+        });
+        mainCL.addView(toggle);
+    }
     private void buildKeys(){
         int orientation=getScreenOrientation();
         float w = (float) 0.25;
@@ -1190,6 +1241,8 @@ public class MainActivity extends Activity {
             return cursorLeft();
         else if(keycode==KeyEvent.KEYCODE_F)
             return cursorRight();
+        else if(keycode==KeyEvent.KEYCODE_C)
+            return clearOutput();
         else if(keycode==KeyEvent.KEYCODE_R)
             return runCode(true,true);
         else if(keycode==KeyEvent.KEYCODE_J)
@@ -1210,13 +1263,16 @@ public class MainActivity extends Activity {
             return beginningOfLine();
         else if(keycode==KeyEvent.KEYCODE_I)
             return writeToIO();
-        else if(keycode==KeyEvent.KEYCODE_U){
+        else if(keycode==KeyEvent.KEYCODE_O){
             GlobalState.showThreadInfo();
             return true;}
+        else if(keycode==KeyEvent.KEYCODE_U){
+            return runCodeInUIThread(true);
+            }
         else if(keycode==KeyEvent.KEYCODE_T)
             return addString("  ");
-        else if(keycode==KeyEvent.KEYCODE_O)
-            return addString(" ");
+
+
         else if(keycode==KeyEvent.KEYCODE_C){
             startNewThread();
             return true;
@@ -1249,7 +1305,7 @@ public class MainActivity extends Activity {
         return true;
     }
 
-    public boolean onAtlModify(int keycode, KeyEvent event){
+    public boolean onAltModify(int keycode, KeyEvent event){
         if(keycode==KeyEvent.KEYCODE_W){
             return copy();
         }
@@ -1260,7 +1316,7 @@ public class MainActivity extends Activity {
             return wordRight();
         }
         else if(keycode==KeyEvent.KEYCODE_U){
-            return runCodeInUIThread();
+            return runCodeInUIThread(false);
         }
         else if(keycode==KeyEvent.KEYCODE_C){
             callback.run(this);
@@ -1282,7 +1338,7 @@ public class MainActivity extends Activity {
             return onCtrModify(keycode,event);
         }
         else if(event.isAltPressed()){
-            return onAtlModify(keycode,event);
+            return onAltModify(keycode,event);
         }
         else if(keycode>=KeyEvent.KEYCODE_A && keycode<=KeyEvent.KEYCODE_Z){
             char base='a';
@@ -1583,6 +1639,11 @@ public class MainActivity extends Activity {
                     result.add(f.getName());
                 }
             }
+            for(String cmd: buildInCmd){
+                if(cmd.startsWith(hint)){
+                    result.add(cmd);
+                }
+            }
         }
         return result;
     }
@@ -1614,6 +1675,7 @@ public class MainActivity extends Activity {
         emptyInput();
         return true;
     }
+    public static String[] buildInCmd={"cd","mkdir","save","cat","open","ls","clear"};
     private boolean runCmd(Boolean isClean){
         String codeInput=currentInput.toString();
         String[] cmd=codeInput.split("\\s+");
@@ -1625,6 +1687,9 @@ public class MainActivity extends Activity {
             }
             else if(cmdName.equals("cd")){
                 call_cd(cmd);
+            }
+            else if(cmdName.equals("clear")){
+                call_clear(cmd);
             }
             else if(cmdName.equals("mkdir")){
                 call_mkdir(cmd);
@@ -1687,6 +1752,10 @@ public class MainActivity extends Activity {
         }
 
     }
+    private void call_clear(String[] cmd){
+        clearOutput();
+    }
+
     private void call_save(String[] cmd){
         File f;
         if(cmd.length==1){
@@ -1857,11 +1926,12 @@ public class MainActivity extends Activity {
     public void setCallBack(CallBack a){
         callback=a;
     }
-    private boolean runCodeInUIThread(){
+    private boolean runCodeInUIThread(boolean isClean){
         if(commandLock.isAvailableForNewCommand){
             String result=commandLock.runInCurrentThread(currentInput.toString(),
                         true);
-            pushToHistory(currentInput.toString());
+            if(isClean)
+                pushToHistory(currentInput.toString());
             addLogWithColor("\n"+result,GlobalState.info);
         }
         else{
@@ -2111,11 +2181,11 @@ public class MainActivity extends Activity {
         if(mode==EDITMODE){
             currentInput=currentCodeInput;
             currentCaret=codeCaretPosition;
-            call_save(new String[]{"save"});
         }
         else if(mode==CMDMODE){
             currentInput=currentCommandInput;
             currentCaret=cmdCaretPosition;
+            call_save(new String[]{"save"});
         }
         currentMode=mode;
         updateUI();

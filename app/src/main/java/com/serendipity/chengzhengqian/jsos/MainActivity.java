@@ -593,14 +593,9 @@ public class MainActivity extends Activity {
         jsLog =  findViewById(R.id.sample_text);
         setTextViewScrollable(jsLog);
 
-        jsLog.setTextSize(20.f);
+        jsLog.setTextSize(15.f);
         setRootDir();
         setMode(CMDMODE);
-//        currentInput.append("java.print(\"I am Niu Niu! Press "+enter+code_part1_LeftRight+" to run!\");" +
-//                "\nc=java.require('CallBack');" +
-//                "\np=java.proxy(c,'a');" +
-//                "\njava.app.setCallBack(p);" +
-//                "\na={};a.run=(x)=>{java.print(x);}");
         jsLog.setKeyListener(new KeyListener() {
             @Override
             public int getInputType() {
@@ -1359,6 +1354,9 @@ public class MainActivity extends Activity {
                 addChar(number.charAt(i));
             return true;
         }
+        else if(keycode==KeyEvent.KEYCODE_ESCAPE){
+            setViewMode(false);
+        }
         else if(keycode==KeyEvent.KEYCODE_PERIOD){
             if(event.isShiftPressed())
                 addChar('>');
@@ -1520,10 +1518,35 @@ public class MainActivity extends Activity {
     public boolean autocomplete(){
         List<String> results=getCurrentVariableHint();
         int hintSize= results.get(0).length();
+        if(results.size()==1){
+            return true;
+        }
         if(results.size()==2){
             addString(results.get(1).substring(hintSize));
         }
         else {
+            StringBuilder commonStart=new StringBuilder();
+
+            int index=results.get(0).length();
+            String first=results.get(1);
+            while(true){
+                char c=' ';
+                if(index>=first.length()){
+                    break;
+                }
+                c=first.charAt(index);
+                for(int k=2;k<results.size();k++){
+                    String current=results.get(k);
+                    if(index>= current.length()){
+                        break;
+                    }
+                    if(c!= current.charAt(index))
+                        break;
+                }
+                commonStart.append(c);
+                index+=1;
+            }
+            addString(commonStart.toString());
             StringBuilder sb=new StringBuilder();
             for(String s:results){
                 if(s.length()>hintSize)
@@ -1675,7 +1698,13 @@ public class MainActivity extends Activity {
         emptyInput();
         return true;
     }
-    public static String[] buildInCmd={"cd","mkdir","save","cat","open","ls","clear"};
+    public static String[] buildInCmd={"cd","mkdir","save","cat","open","ls","clear","examples"};
+
+    /**
+     * run command in Cmd mode
+     * @param isClean whether clear the input
+     * @return
+     */
     private boolean runCmd(Boolean isClean){
         String codeInput=currentInput.toString();
         String[] cmd=codeInput.split("\\s+");
@@ -1704,6 +1733,9 @@ public class MainActivity extends Activity {
                 call_open(cmd);
                 isClean=false;
             }
+            else if(cmdName.equals("examples")){
+                call_examples(cmd);
+            }
             else{
                 for(File f: currentDir.listFiles()){
                     if(f.isFile()){
@@ -1717,8 +1749,10 @@ public class MainActivity extends Activity {
                                 arg.append("\""+cmd[i]+"\"");
                             }
                             arg.append("];");
-                            runJsCode(arg.toString()+"\n"+readFile(f),true,
-                                    false);
+//                            runJsCode(arg.toString()+"\n"+readFile(f),true,
+//                                    false);
+                            /* as we focus on ui */
+                            runCodeInUIThread(arg.toString()+"\n"+readFile(f));
                             //runCodeInUIThread(arg.toString());
                             //runCodeInUIThread(readFile(f));
                         }
@@ -1755,23 +1789,22 @@ public class MainActivity extends Activity {
     private void call_clear(String[] cmd){
         clearOutput();
     }
-
-    private void call_save(String[] cmd){
-        File f;
-        if(cmd.length==1){
-            f=new File(currentDir.getAbsolutePath()+"/"+currentFileName);
-        }
-        else {
-            f=new File(currentDir.getAbsolutePath()+"/"+cmd[1]);
-            currentFileName=cmd[1];
-        }
+    private void writeToCurrentDir(String filename, String content){
+        File f=new File(currentDir.getAbsolutePath()+"/"+filename);
         try {
             BufferedWriter bw=new BufferedWriter(new FileWriter(f));
-            bw.write(currentCodeInput.toString());
+            bw.write(content);
             bw.close();
         } catch (IOException e) {
             addLogWithColor("\n"+e.toString(),GlobalState.error);
         }
+    }
+    private void call_save(String[] cmd){
+        File f;
+        if(cmd.length>1)
+            currentFileName=cmd[1];
+        writeToCurrentDir(currentFileName,currentCodeInput.toString());
+
     }
 
     private String readFile(File f){
@@ -1828,6 +1861,25 @@ public class MainActivity extends Activity {
             updateUI();
         }
 
+    }
+
+    /**
+     * add examples to current dir
+     * @param cmd
+     */
+
+    private void call_examples(String[] cmd){
+        writeToCurrentDir("example1","java.print(\"hello!\")");
+        writeToCurrentDir("example2","java.ui.removeAllViews();\n" +
+                "Button=java.require(\"Button\");\n" +
+                "Click=java.require(\"OnClickListener\");\n" +
+                "click={onClick:(v)=>{v.setText('clicked!');}};\n" +
+                "btn=Button.new(java.app);\n" +
+                "btn.setText(\"click me!\");\n" +
+                "btn.setOnClickListener(java.proxy(Click,'click'));\n" +
+                "java.ui.addView(btn);\n" +
+                "java.gotoUI();\n");
+        return;
     }
     private void call_cd(String[] cmd){
         if(cmd.length>1){

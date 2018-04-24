@@ -48,6 +48,12 @@ public class JsJava {
         GlobalState.printToLog("class "+name+"not found!\n",GlobalState.error);
         return JsJava.class;
     }
+
+    /**
+     * use to import a java class
+     * @param name
+     * @return
+     */
     public static Class<?> require(String name){
         try {
             return Class.forName(name);
@@ -80,7 +86,8 @@ public class JsJava {
 
     }
     /*
-    to avoid complexity, we require
+    to avoid complexity, we require that proxy will be called from the same thread, this will help
+    the openGL development
     * */
     public Object proxy(Class<?> c, String name){
         return Proxy.newProxyInstance(

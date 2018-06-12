@@ -35,7 +35,7 @@ public class CommandLock {
         // a jnienv and some frequent used class and method, this make it thread sensitve. As
         // duktape heap also require single thread executation (but allow several thread share the
         // the heap, currently, the strategy is, any java thread try to execuate a code, register its
-        // own callback,if finised, rember to realse the refernece hold by javahandle.
+        // own callback,if finised, remember to release the refernece hold by javahandle.
     }
     public static final String argForm="__arg%d__";
     public void callJsObjectInCurrentThread(String objectName, String methodName, Object[] args){

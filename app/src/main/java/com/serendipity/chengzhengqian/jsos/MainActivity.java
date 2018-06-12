@@ -212,7 +212,7 @@ public class MainActivity extends Activity {
         }
 
     }
-    /*when usr pressed two keys, it is either valid or not, this number indicates the inserted
+    /*when user pressed two keys, it is either valid or not, this number indicates the inserted
     * number of character in a session*/
 
     public int currentInsertNumber=0;

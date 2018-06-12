@@ -10,7 +10,7 @@ public class JsService extends Service {
     public IBinder onBind(Intent intent) {
         return null;
     }
-    private static int WEBSERVER_PORT = 11000;
+    static int WEBSERVER_PORT = 11000;
     private JsServer server;
     public static String wrapServiceInfo(String s)
     {

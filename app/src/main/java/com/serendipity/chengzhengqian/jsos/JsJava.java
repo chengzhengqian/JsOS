@@ -8,7 +8,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * a instance of it will push to javascript as a global variable java
+ * a instance of it will push to javascript as a global variable named as java
+ * each js thread has its own java object
  * */
 public class JsJava {
     /**
@@ -29,6 +30,9 @@ public class JsJava {
     }
     public static void print(Object s){
         GlobalState.printToLog(s.toString(),GlobalState.normal);
+    }
+    public static void ip(){
+        new JsServer.ShowIPInfo().execute(JsService.WEBSERVER_PORT);
     }
     public static List<String> PATH=new LinkedList<>(Arrays.asList(
             "com.serendipity.chengzhengqian.jsos.",

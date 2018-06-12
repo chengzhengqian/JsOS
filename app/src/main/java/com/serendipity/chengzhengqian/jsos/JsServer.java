@@ -8,7 +8,7 @@ import java.util.Map;
 
 public class JsServer extends NanoHTTPD {
 
-    class ShowIPInfo extends AsyncTask<Integer, Void, Void> {
+    static class ShowIPInfo extends AsyncTask<Integer, Void, Void> {
 
         @Override
         protected Void doInBackground(Integer... port) {

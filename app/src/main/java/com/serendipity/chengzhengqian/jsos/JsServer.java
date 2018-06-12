@@ -82,6 +82,9 @@ public class JsServer extends NanoHTTPD {
                     @Override
                     public void run() {
                         try {
+                            /*
+                            commandLock is notified to awake the js thread to run the code
+                            * */
                             GlobalState.printToLog(">>>\n"+content+"\n<<<\n",GlobalState.info);
                             synchronized (GlobalState.commandLock){
                                 CommandLock.isShowOutput=false;
@@ -104,6 +107,7 @@ public class JsServer extends NanoHTTPD {
 
         return newFixedLengthResponse(response);
     }
+
     private Response runCodeUI(IHTTPSession session) {
         String result=parseBodyForPostOrGet(session);
         String response="";

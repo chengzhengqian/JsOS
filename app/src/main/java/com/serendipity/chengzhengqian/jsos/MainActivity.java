@@ -1978,6 +1978,8 @@ public class MainActivity extends Activity {
     public void setCallBack(CallBack a){
         callback=a;
     }
+
+    //this start a new context for this given commandLock (which holds the jsctx)
     private boolean runCodeInUIThread(boolean isClean){
         if(commandLock.isAvailableForNewCommand){
             String result=commandLock.runInCurrentThread(currentInput.toString(),
